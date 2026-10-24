@@ -46,10 +46,37 @@
 
 ## 安装
 
-### 方式一：装成 agent skill（推荐）
+> **一句话：把整个仓库文件夹（保持名字 `academic-paper-docx`）放进 agent 的 skills 目录，就装好了。**
+>
+> 仓库根目录**就是** skill 根目录——`SKILL.md` 在根上，`scripts/`、`examples/`、`references/` 与它同级。
+> 不需要编译、不需要 `pip install` 本仓库（只装它的 Python 依赖）。**文件夹名不要改**，技能名取自目录名。
+
+### 放到哪个目录
+
+`~` 指用户主目录（Windows 上是 `C:\Users\<用户名>`）。
+
+| 你用哪个 agent | skills 目录 | 装好后的最终路径 |
+|---|---|---|
+| **DSH**（Deepseek Harness） | `~/.dsh/skills/` | `~/.dsh/skills/academic-paper-docx/` |
+| **Codex** | `~/.codex/skills/` | `~/.codex/skills/academic-paper-docx/` |
+| **Claude** 或其它读 `SKILL.md` 的 agent | `~/.claude/skills/` | `~/.claude/skills/academic-paper-docx/` |
+| 只给当前项目用 | `<项目>/.dsh/skills/` | `<项目>/.dsh/skills/academic-paper-docx/` |
+
+装好后目录长这样（`SKILL.md` 必须在这一层）：
+
+```text
+~/.dsh/skills/academic-paper-docx/
+├── SKILL.md          ← agent 读这个文件
+├── scripts/          ← 生成与质检脚本
+├── examples/         ← 内容模型样例
+├── references/       ← 规范全文与排障
+└── requirements.txt
+```
+
+### 方式 A：git clone（推荐，之后 `git pull` 即可升级）
 
 ```powershell
-# Windows
+# Windows (PowerShell)
 git clone https://github.com/OWNER/academic-paper-docx "$env:USERPROFILE\.dsh\skills\academic-paper-docx"
 python -m pip install -r "$env:USERPROFILE\.dsh\skills\academic-paper-docx\requirements.txt"
 ```
@@ -60,30 +87,89 @@ git clone https://github.com/OWNER/academic-paper-docx ~/.dsh/skills/academic-pa
 python3 -m pip install -r ~/.dsh/skills/academic-paper-docx/requirements.txt
 ```
 
-也可以用自带脚本（支持 dsh / codex / claude / 项目级 / 自定义目录，可选符号链接）：
+换成 Codex 就把 `\.dsh\skills` 改成 `\.codex\skills`（`~/.codex/skills`）。
+
+### 方式 B：下载 ZIP（不用 git）
+
+1. 仓库页面 → **Code → Download ZIP**（或从 Releases 下载附件 zip）；
+2. 解压：
+   - **Releases 附件**解开就是 `academic-paper-docx/`，直接用；
+   - **Code → Download ZIP** 会解成 `academic-paper-docx-main/`（带分支名）→ **重命名为 `academic-paper-docx`**；
+3. **把这个文件夹整个剪切到 skills 目录**（不要再往里套一层，最终要能看到 `academic-paper-docx/SKILL.md`）；
+4. 装依赖：`python -m pip install -r <目标路径>\requirements.txt`。
+
+> 目录名就是技能名。留着 `-main` 后缀，agent 里看到的技能会叫 `academic-paper-docx-main`，
+> 写法与本文档不一致。用 `install.ps1` / `install.sh` 安装则不用管，脚本会统一成正确名字。
+
+### 方式 C：安装脚本（已在本地 clone 过）
 
 ```powershell
-pwsh -File .\install.ps1 -Target codex -Force
+pwsh -File .\install.ps1 -Target dsh -Force     # 也支持 codex / claude / project / custom
+pwsh -File .\install.ps1 -Target custom -Path D:\my-agent\skills -Link   # 符号链接，改代码立即生效
 ```
 
 ```bash
-LINK=1 ./install.sh codex
+./install.sh codex          # 或 dsh / claude / project / custom <dir>
+LINK=1 ./install.sh codex   # 符号链接
 ```
 
-装好后重启 agent（或新开会话），技能 `academic-paper-docx` 就会被发现。
+脚本会自动排除 `.git`、`__pycache__`、`build/` 等生成物。
 
-### 方式二：当普通工具用
+### 装完怎么验证
+
+```bash
+# 1) 目录正确（能看到 SKILL.md 与 scripts/apd.py）
+ls ~/.dsh/skills/academic-paper-docx
+
+# 2) 环境自检（会列出 python-docx / Word / 中文字体等）
+python ~/.dsh/skills/academic-paper-docx/scripts/apd.py doctor
+
+# 3) 跑一遍内置示例（图表 → docx → 质检），确认脚本可用
+python ~/.dsh/skills/academic-paper-docx/scripts/apd.py demo -o /tmp/apd-demo
+```
+
+然后**重启 agent 或新开一个会话**（skills 目录一般在启动时扫描），让它试着做一件小事，例如：
+
+> 用 academic-paper-docx 生成一份课程报告，两页就行，包含一张三线表和一个公式。
+
+agent 应该会读 `SKILL.md` → 写 `content.json` → 调 `scripts/apd.py build`。
+
+### 也可以让 agent 自己装
+
+把下面这段直接发给支持「执行命令 + 访问网络」的 agent：
+
+```text
+把 https://github.com/OWNER/academic-paper-docx 克隆到 ~/.dsh/skills/academic-paper-docx
+（若已存在则先备份），然后执行 python -m pip install -r <该目录>/requirements.txt，
+最后运行 <该目录>/scripts/apd.py doctor 并把结果告诉我。
+```
+
+### 找不到技能 / 装不上
+
+| 现象 | 原因与处理 |
+|---|---|
+| agent 里没有 `academic-paper-docx` 技能 | 没重启；或目录多套了一层（必须是 `skills/academic-paper-docx/SKILL.md`） |
+| 技能名变成 `academic-paper-docx-main` | ZIP 解压带了分支名，把目录重命名成 `academic-paper-docx` 再重启 |
+| 技能出现了但一跑就报错 | 依赖没装：`python -m pip install -r <目录>/requirements.txt` |
+| `python` 不是 3.9+ | 用 `py -3.12` 或改成你的解释器路径；`apd.py doctor` 会显示版本 |
+| Windows 上 `~` 不生效 | PowerShell 用 `$env:USERPROFILE`，cmd 用 `%USERPROFILE%` |
+
+## 当普通工具用（不装成 skill）
 
 ```bash
 git clone https://github.com/OWNER/academic-paper-docx
 cd academic-paper-docx
 python -m pip install -r requirements.txt
-python scripts/apd.py doctor     # 环境自检
+python scripts/apd.py doctor                 # 环境自检
+python scripts/apd.py demo -o build/demo     # 跑一遍完整示例
 ```
 
-不装依赖也能读 `references/format-spec.md` 当**格式规范手册**用。
+只想要格式规范手册：直接读 [`references/format-spec.md`](references/format-spec.md)，不需要任何依赖。
 
-## 三步上手
+## 三步上手（装好之后）
+
+下面的 `scripts/apd.py` 是相对路径，在 skill 目录里执行；不在那个目录时用绝对路径
+（例如 `python ~/.dsh/skills/academic-paper-docx/scripts/apd.py ...`）。产物路径随意，建议单独建一个工作目录。
 
 ```bash
 # 1) 内容模型 → docx

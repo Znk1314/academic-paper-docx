@@ -11,6 +11,11 @@ whenToUse: 用户要求产出 .docx 论文/报告/毕业设计，或要求按学
 
 权威依据：`references/format-spec.md`（完整规范，任何时候与本文冲突以它为准）。
 
+> **安装 / 更新**：本目录整体就是技能本体，放到 `<agent>/skills/academic-paper-docx/`（DSH 为
+> `~/.dsh/skills/`，Codex 为 `~/.codex/skills/`）即可，文件夹名不要改；然后
+> `python -m pip install -r <本目录>/requirements.txt`，重启 agent 生效。
+> 详细步骤与排障见 `README.md` 的「安装」章节。
+
 ## 0. 三条硬规矩
 
 1. **不要手写 python-docx 代码去拼格式**。格式已在 `scripts/docx_builder.py` 里实现，

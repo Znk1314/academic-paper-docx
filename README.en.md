@@ -42,32 +42,96 @@ Full 7-page output: [docs/demo/demo_report.pdf](docs/demo/demo_report.pdf).
 
 ## Install
 
-As an agent skill (recommended):
+> **In one sentence: drop the whole repository folder (keep the name `academic-paper-docx`) into your agent's skills directory.**
+>
+> The repository root *is* the skill root — `SKILL.md` sits next to `scripts/`, `examples/` and `references/`.
+> Nothing to build, and you never `pip install` this repo (only its Python dependencies). **Do not rename
+> the folder** — the skill name comes from the directory name.
+
+| Your agent | skills directory | Final path |
+|---|---|---|
+| **DSH** (Deepseek Harness) | `~/.dsh/skills/` | `~/.dsh/skills/academic-paper-docx/` |
+| **Codex** | `~/.codex/skills/` | `~/.codex/skills/academic-paper-docx/` |
+| **Claude** (or any `SKILL.md`-aware agent) | `~/.claude/skills/` | `~/.claude/skills/academic-paper-docx/` |
+| Single project only | `<project>/.dsh/skills/` | `<project>/.dsh/skills/academic-paper-docx/` |
+
+The installed layout must look like this (`SKILL.md` at the top of the skill folder):
+
+```text
+~/.dsh/skills/academic-paper-docx/
+├── SKILL.md          ← what the agent reads
+├── scripts/          ← generator + QA
+├── examples/         ← content-model samples
+├── references/       ← the formatting spec
+└── requirements.txt
+```
+
+### A. git clone (recommended — `git pull` to upgrade)
 
 ```bash
+# macOS / Linux
 git clone https://github.com/OWNER/academic-paper-docx ~/.dsh/skills/academic-paper-docx
 python3 -m pip install -r ~/.dsh/skills/academic-paper-docx/requirements.txt
 ```
 
 ```powershell
+# Windows
 git clone https://github.com/OWNER/academic-paper-docx "$env:USERPROFILE\.dsh\skills\academic-paper-docx"
 python -m pip install -r "$env:USERPROFILE\.dsh\skills\academic-paper-docx\requirements.txt"
 ```
 
-Or use the installer (dsh / codex / claude / project / custom, optional symlink):
+For Codex, swap `/.dsh/skills` for `/.codex/skills`.
+
+### B. Download ZIP (no git)
+
+1. **Code → Download ZIP** on the repository page (or grab the zip attached to a Release);
+2. Extract it:
+   - a **Release** attachment extracts to `academic-paper-docx/` — use it as is;
+   - **Code → Download ZIP** extracts to `academic-paper-docx-main/` (branch suffix) — **rename it to
+     `academic-paper-docx`**;
+3. Move **that folder** into your skills directory (do not nest it one level deeper; you must end up with
+   `academic-paper-docx/SKILL.md`);
+4. `python -m pip install -r <that path>/requirements.txt`.
+
+> The folder name *is* the skill name. Keep the `-main` suffix and the agent will list the skill as
+> `academic-paper-docx-main`. The installer scripts normalise the name for you.
+
+### C. Installer script (after cloning locally)
 
 ```bash
-./install.sh codex
+./install.sh codex                 # or dsh / claude / project / custom <dir>
 pwsh -File .\install.ps1 -Target codex -Force
 ```
 
-As a plain tool:
+### Verify
+
+```bash
+python ~/.dsh/skills/academic-paper-docx/scripts/apd.py doctor
+python ~/.dsh/skills/academic-paper-docx/scripts/apd.py demo -o /tmp/apd-demo
+```
+
+Then **restart the agent or start a new session** (skills directories are usually scanned at startup) and
+ask for something small, e.g. *"Generate a two-page course report with a three-line table and one equation."*
+
+### Troubleshooting
+
+| Symptom | Fix |
+|---|---|
+| Skill not listed | Agent not restarted, or the folder is nested twice (`skills/academic-paper-docx/SKILL.md` is the correct depth) |
+| Skill shows up as `academic-paper-docx-main` | ZIP extraction kept the branch suffix — rename the folder, then restart |
+| Skill loads but commands fail | Missing deps: `python -m pip install -r <dir>/requirements.txt` |
+| `python` is older than 3.9 | Use `py -3.12` / your own interpreter; `apd.py doctor` prints the version |
+
+## As a plain tool (no skill install)
 
 ```bash
 git clone https://github.com/OWNER/academic-paper-docx && cd academic-paper-docx
 python -m pip install -r requirements.txt
-python scripts/apd.py doctor
+python scripts/apd.py doctor                 # environment self-check
+python scripts/apd.py demo -o build/demo     # full pipeline on the bundled sample
 ```
+
+Just want the formatting spec? Read [`references/format-spec.md`](references/format-spec.md) — no dependencies.
 
 ## Usage
 

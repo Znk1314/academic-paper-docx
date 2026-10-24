@@ -180,9 +180,17 @@
 <section>
   <div class="wrap">
     <h2>三步上手</h2>
+    <p class="lead">
+      <strong>安装 = 把整个仓库文件夹放进 skills 目录</strong>（名字保持 <code>academic-paper-docx</code>）。
+      支持 <code>~/.dsh/skills/</code>（DSH）、<code>~/.codex/skills/</code>（Codex）、
+      <code>~/.claude/skills/</code>；不想用 git 就 Download ZIP 后把解压出的文件夹整体放进去。
+      装完重启 agent 即可。详见
+      <a href="https://github.com/OWNER/academic-paper-docx#安装">README 的安装章节</a>。
+    </p>
 <pre><span class="c"># 1) 装进 agent 的 skills 目录（DSH / Codex / Claude 通用）</span>
 git clone https://github.com/OWNER/academic-paper-docx ~/.dsh/skills/academic-paper-docx
 python -m pip install -r ~/.dsh/skills/academic-paper-docx/requirements.txt
+python ~/.dsh/skills/academic-paper-docx/scripts/apd.py doctor   <span class="c"># 自检</span>
 
 <span class="c"># 2) 写内容模型 → 生成 docx</span>
 python scripts/apd.py build work/content.json -o work/report.docx
