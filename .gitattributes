@@ -1,0 +1,30 @@
+# 默认按文本处理，统一用 LF；但 PowerShell 脚本必须是 CRLF + UTF-8 BOM，
+# 否则 Windows PowerShell 5.1 会当成 ANSI 读取导致中文乱码与语法错误。
+* text=auto eol=lf
+
+*.py      text eol=lf
+*.md      text eol=lf
+*.json    text eol=lf
+*.toml    text eol=lf
+*.yml     text eol=lf
+*.yaml    text eol=lf
+*.sh      text eol=lf
+*.html    text eol=lf
+*.css     text eol=lf
+*.js      text eol=lf
+
+# .ps1 走 CRLF；BOM 作为文件内容的一部分提交（tests/test_cli.py 会校验 BOM 存在）。
+# 不使用 working-tree-encoding，避免 Git 在 add/checkout 时反复转换。
+*.ps1     text eol=crlf
+*.psm1    text eol=crlf
+
+*.docx    binary
+*.pdf     binary
+*.png     binary
+*.jpg     binary
+*.ttf     binary
+*.ttc     binary
+*.zip     binary
+
+# 截图在 GitHub diff 里不需要按文本流展示
+docs/screenshots/*.png binary

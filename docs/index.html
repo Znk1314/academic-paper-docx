@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>academic-paper-docx — 学术论文 Word 排版与生成</title>
+<meta name="description" content="把学术论文 Word 排版规范变成可执行的格式系统：三线表、OMML 公式、自动目录、GB/T 7714、默认页面视图。适用于 DSH / Codex / Claude 等 agent。">
+<style>
+  :root {
+    --navy: #1F3A5F;
+    --blue: #0072B2;
+    --ink: #262626;
+    --gray: #595959;
+    --pale: #EAF2FA;
+    --line: #B4C6E7;
+    --bg: #FCFDFE;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font: 16px/1.75 -apple-system, "Segoe UI", "Microsoft YaHei", "Hiragino Sans GB",
+          "Source Han Sans SC", sans-serif;
+  }
+  a { color: var(--blue); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  code, pre {
+    font-family: "JetBrains Mono", Consolas, "Courier New", monospace;
+    font-size: 13.5px;
+  }
+  .wrap { max-width: 980px; margin: 0 auto; padding: 0 24px; }
+
+  header {
+    border-bottom: 1px solid var(--line);
+    background: linear-gradient(180deg, #F4F8FD 0%, #FCFDFE 100%);
+    padding: 56px 0 44px;
+  }
+  header h1 {
+    margin: 0 0 6px;
+    font-size: 40px;
+    letter-spacing: -0.5px;
+    color: var(--navy);
+  }
+  header .sub { font-size: 18px; color: var(--gray); margin: 0 0 22px; }
+  .badges { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 24px; }
+  .badges img { height: 20px; }
+  .cta { display: flex; flex-wrap: wrap; gap: 12px; }
+  .btn {
+    display: inline-block;
+    padding: 10px 20px;
+    border-radius: 8px;
+    border: 1px solid var(--blue);
+    color: #fff;
+    background: var(--blue);
+    font-weight: 600;
+  }
+  .btn.ghost { background: #fff; color: var(--navy); border-color: var(--line); }
+  .btn:hover { text-decoration: none; filter: brightness(1.05); }
+
+  section { padding: 44px 0; border-bottom: 1px solid #E8EEF6; }
+  h2 {
+    font-size: 24px;
+    color: var(--navy);
+    margin: 0 0 6px;
+    padding-bottom: 8px;
+    border-bottom: 2px solid var(--blue);
+    display: inline-block;
+  }
+  h3 { font-size: 17px; color: var(--navy); margin: 28px 0 8px; }
+  p.lead { color: var(--gray); margin: 14px 0 22px; }
+
+  .grid { display: grid; gap: 16px; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); }
+  .card {
+    background: #fff;
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 16px 18px;
+  }
+  .card h4 { margin: 0 0 6px; font-size: 15px; color: var(--navy); }
+  .card p { margin: 0; font-size: 14px; color: var(--gray); }
+
+  .gallery { display: grid; gap: 18px; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); }
+  figure { margin: 0; }
+  figure img {
+    width: 100%;
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    box-shadow: 0 2px 10px rgba(31, 58, 95, .07);
+    display: block;
+  }
+  figcaption { font-size: 13px; color: var(--gray); margin-top: 6px; text-align: center; }
+
+  pre {
+    background: #F5F8FC;
+    border: 1px solid var(--line);
+    border-left: 4px solid var(--blue);
+    border-radius: 8px;
+    padding: 14px 16px;
+    overflow-x: auto;
+    line-height: 1.6;
+  }
+  pre .c { color: #7A8794; }
+
+  table { width: 100%; border-collapse: collapse; font-size: 14.5px; margin: 12px 0 4px; }
+  th, td { padding: 9px 12px; text-align: left; border-bottom: 1px solid #E4EBF4; }
+  thead th { background: var(--pale); color: var(--navy); }
+  tbody tr:hover { background: #FAFCFF; }
+  td code { background: #F0F4FA; padding: 1px 5px; border-radius: 4px; }
+
+  footer { padding: 34px 0 54px; color: var(--gray); font-size: 14px; }
+  .pill {
+    display: inline-block; font-size: 12px; padding: 1px 8px; border-radius: 999px;
+    background: var(--pale); color: var(--navy); border: 1px solid var(--line);
+    margin-right: 6px;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="wrap">
+    <h1>academic-paper-docx</h1>
+    <p class="sub">学术论文 / 研究报告 Word 排版与生成 —— 一套可以跑起来的格式系统</p>
+    <div class="badges">
+      <img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="MIT">
+      <img src="https://img.shields.io/badge/python-3.9%2B-blue.svg" alt="python 3.9+">
+      <img src="https://img.shields.io/badge/agent-DSH%20%7C%20Codex%20%7C%20Claude-1F3A5F.svg" alt="agents">
+      <img src="https://img.shields.io/badge/QA-35%20checks-009E73.svg" alt="35 checks">
+    </div>
+    <div class="cta">
+      <a class="btn" href="https://github.com/OWNER/academic-paper-docx">GitHub 仓库</a>
+      <a class="btn ghost" href="demo/demo_report.pdf">下载示例 PDF</a>
+    </div>
+  </div>
+</header>
+
+<section>
+  <div class="wrap">
+    <h2>它解决什么</h2>
+    <p class="lead">让模型"写个 Word"最常见的翻车点，这里全部固化掉了。</p>
+    <div class="grid">
+      <div class="card"><h4>字体不生效</h4><p>只设了 <code>w:ascii</code>，中文实际走主题字体。这里写入前会清掉 <code>asciiTheme</code>。</p></div>
+      <div class="card"><h4>首行缩进靠敲空格</h4><p>用 <code>firstLineChars=200</code> 精确两字符，并避开与悬挂缩进的属性冲突。</p></div>
+      <div class="card"><h4>三线表变成全框线</h4><p>顶/底线 1.5 pt、表头线 1 pt、无竖线，表头跨页重复、行不拆分。</p></div>
+      <div class="card"><h4>公式是图片</h4><p>LaTeX 子集直接转成 Word 原生 <strong>OMML</strong>，双击可编辑，编号右对齐。</p></div>
+      <div class="card"><h4>目录是手打的</h4><p>插入真正的 <code>TOC \o "1-1"</code> 域，用 Word 更新页码，改正文不会错位。</p></div>
+      <div class="card"><h4>打开是 Web 版式</h4><p>最后一次保存后再写 <code>w:view=print</code> + 100%，默认就是页面视图。</p></div>
+      <div class="card"><h4>参考文献跑出页面</h4><p><code>w:hanging</code> 单位坑（EMU 当 twips）已修复，9 pt + 0.74 cm 悬挂缩进。</p></div>
+      <div class="card"><h4>改一个字全乱</h4><p>图表编号由脚本接管，重排后自动连续；正文引用缺失会被质检标出来。</p></div>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="wrap">
+    <h2>成品长什么样</h2>
+    <p class="lead">下面全部由 <code>examples/demo/content_model.json</code> 自动生成，未做人工排版。</p>
+    <div class="gallery">
+      <figure>
+        <img src="screenshots/01-cover.png" alt="封面">
+        <figcaption>封面：24 pt 深蓝主标题 + 1.5 pt 学术蓝横线 + 无边框信息表</figcaption>
+      </figure>
+      <figure>
+        <img src="screenshots/02-abstract.png" alt="摘要">
+        <figcaption>摘要：一级标题外观但不进目录；关键词 10.5 pt</figcaption>
+      </figure>
+      <figure>
+        <img src="screenshots/05-figure-equation.png" alt="图与公式">
+        <figcaption>图题在下、图注 8.5 pt 灰；公式 OMML 居中、编号右对齐</figcaption>
+      </figure>
+      <figure>
+        <img src="screenshots/06-table.png" alt="三线表">
+        <figcaption>三线表：无竖线、表题在上、表注明"模拟数据"</figcaption>
+      </figure>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="wrap">
+    <h2>三步上手</h2>
+<pre><span class="c"># 1) 装进 agent 的 skills 目录（DSH / Codex / Claude 通用）</span>
+git clone https://github.com/OWNER/academic-paper-docx ~/.dsh/skills/academic-paper-docx
+python -m pip install -r ~/.dsh/skills/academic-paper-docx/requirements.txt
+
+<span class="c"># 2) 写内容模型 → 生成 docx</span>
+python scripts/apd.py build work/content.json -o work/report.docx
+
+<span class="c"># 3) 更新目录/域 + 导 PDF + 质检（Windows + Word 最完整）</span>
+python scripts/apd.py post work/report.docx
+python scripts/apd.py qa   work/report.docx --pdf work/report.pdf</pre>
+    <p class="lead">也可以用 <code>python scripts/apd.py demo -o build/demo</code> 一次跑完整流程。</p>
+  </div>
+</section>
+
+<section>
+  <div class="wrap">
+    <h2>格式指标（可被质检脚本验证）</h2>
+    <table>
+      <thead><tr><th>项目</th><th>值</th></tr></thead>
+      <tbody>
+        <tr><td>纸张 / 页边距</td><td>A4，上 2.4 / 下 2.2 / 左 2.6 / 右 2.4 cm</td></tr>
+        <tr><td>正文</td><td>宋体 + Times New Roman，12 pt，1.5 倍行距，首行 2 字符</td></tr>
+        <tr><td>一级标题</td><td>黑体 16 pt 粗体 <code>#1F3A5F</code>，下边框 0.75 pt <code>#0072B2</code></td></tr>
+        <tr><td>二级标题</td><td>黑体 13 pt 粗体 <code>#0072B2</code></td></tr>
+        <tr><td>三线表</td><td>顶/底线 1.5 pt，表头线 1 pt，无竖线，表头跨页重复</td></tr>
+        <tr><td>图 / 表题</td><td>9.5 pt 粗体 <code>#1F3A5F</code>；图题在下、表题在上</td></tr>
+        <tr><td>公式</td><td>OMML 居中，编号 <code>（1）</code> 右对齐</td></tr>
+        <tr><td>目录</td><td><code>TOC \o "1-1" \h \z \u</code>，只显示一级标题</td></tr>
+        <tr><td>页眉 / 页脚</td><td>8.5 pt 右对齐 / 8 pt 居中 <code>第 X 页 / 共 Y 页</code></td></tr>
+        <tr><td>参考文献</td><td>9 pt，悬挂缩进 0.74 cm，GB/T 7714</td></tr>
+        <tr><td>默认视图</td><td><code>w:view=print</code>，缩放 100%</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section>
+  <div class="wrap">
+    <h2>组件</h2>
+    <div class="grid">
+      <div class="card"><h4>docx_builder.py</h4><p>格式库：页面、样式、封面、目录域、三线表、图、公式、页眉页脚、print 视图。</p></div>
+      <div class="card"><h4>omml_latex.py</h4><p>LaTeX 子集 → OMML，零外部依赖。</p></div>
+      <div class="card"><h4>qa_check.py</h4><p>35 项规范检查，输出 OK / WARN / FAIL。</p></div>
+      <div class="card"><h4>postprocess.ps1</h4><p>Word COM 更新域与目录、导 PDF，再固定页面视图。</p></div>
+      <div class="card"><h4>make_chart.py</h4><p>Okabe-Ito 配色图表，按 300 dpi 反算字号，无需 matplotlib。</p></div>
+      <div class="card"><h4>render_preview.py</h4><p>PDF 逐页 PNG，检出空白页与未定义书签。</p></div>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap">
+    <span class="pill">MIT</span><span class="pill">python-docx</span><span class="pill">Word / WPS</span><span class="pill">LibreOffice 兜底</span>
+    <p>本页是静态落地页，示例 PDF 与截图均来自仓库内的自动生成产物。</p>
+  </div>
+</footer>
+
+</body>
+</html>

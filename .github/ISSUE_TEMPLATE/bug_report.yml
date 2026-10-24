@@ -1,0 +1,83 @@
+name: Bug 报告
+description: 生成的 docx 不符合规范、脚本报错、Word 里显示异常
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        感谢反馈。请尽量附上**可复现的最小内容模型**和 `qa_check.py` 的输出，
+        这样定位会快很多。安全相关问题请改走 SECURITY.md 的渠道。
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: 出问题的环节
+      options:
+        - 生成 docx（build_docx.py / apd.py build）
+        - 格式不符合规范（字体/字号/三线表/图表题/公式/目录/页眉页脚）
+        - 更新目录与导出 PDF（postprocess.ps1 / postprocess.sh）
+        - 质检误报或漏报（qa_check.py）
+        - 图表生成（make_chart.py）
+        - PDF 预览（render_preview.py）
+        - 安装 / 环境（install.ps1、依赖、agent 识别不到 skill）
+        - 文档 / 示例
+        - 其它
+    validations:
+      required: true
+
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: 现象
+      description: 具体看到了什么（文字描述或截图），以及期望是什么。
+    validations:
+      required: true
+
+  - type: textarea
+    id: repro
+    attributes:
+      label: 复现步骤
+      description: 命令 + 最小内容模型片段（可直接贴 JSON）
+      placeholder: |
+        1. python scripts/apd.py build work/content.json -o work/report.docx
+        2. python scripts/apd.py post work/report.docx
+        3. ...
+      render: shell
+    validations:
+      required: true
+
+  - type: textarea
+    id: qa-output
+    attributes:
+      label: qa_check.py 输出
+      description: 粘贴完整输出（含统计行）
+      render: shell
+    validations:
+      required: false
+
+  - type: input
+    id: env
+    attributes:
+      label: 环境
+      description: 操作系统 / Python 版本 / Office 版本（或 WPS、LibreOffice）
+      placeholder: Windows 11 + Python 3.12 + Microsoft 365 Word
+    validations:
+      required: true
+
+  - type: textarea
+    id: doctor
+    attributes:
+      label: apd.py doctor 输出
+      render: shell
+    validations:
+      required: false
+
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: 确认
+      options:
+        - label: 我已经搜索过现有 issue / discussions
+          required: true
+        - label: 这不是安全问题（安全问题走 SECURITY.md）
+          required: true

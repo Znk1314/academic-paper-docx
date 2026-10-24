@@ -1,0 +1,107 @@
+{
+  "meta": {
+    "org": "示例大学",
+    "doc_type": "本科毕业设计（论文）",
+    "title": "低功耗实验室环境监测节点的设计与评估",
+    "subtitle": "数据采集、边缘融合与能耗权衡",
+    "note": "本文档为格式演示样例，内容与数据均为示意，请勿直接引用",
+    "info": [
+      ["论文编号", "DEMO-2026-001"],
+      ["学生姓名", "（示例姓名）"],
+      ["学院 / 系", "信息科学与技术学院"],
+      ["专业 / 班级", "物联网工程 2022 级"],
+      ["指导教师", "（示例姓名） 副教授"],
+      ["完成日期", "2026 年 3 月"]
+    ],
+    "college": "信息科学与技术学院",
+    "date": "2026 年 3 月",
+    "header_type": "本科毕业设计（论文）"
+  },
+  "abstract": {
+    "heading": "摘　要",
+    "paragraphs": [
+      "高校实验室的环境参数直接影响仪器寿命与实验结果的可复现性，而长时间、多节点的连续监测对功耗与部署成本提出了较高要求。本文面向实验室场景设计了一种低功耗环境监测节点，采用温湿度与颗粒物复合传感单元，在边缘侧完成数据清洗、滑动平均降噪与异常点剔除，仅上传聚合后的特征数据，从而降低无线传输占空比。",
+      "本文的主要工作包括三部分：一是给出节点的硬件结构与低功耗调度策略；二是设计轻量化的边缘数据融合流程，并给出可复现的计算流程；三是通过模拟数据对采样周期、节点数量与平均功耗之间的关系进行评估。结果表明，在采样周期由 30 s 放宽至 120 s 时，节点平均功耗明显下降，而温度估计的均方根误差仍可控制在允许范围内。",
+      "后续工作将在真实实验室环境中部署不少于 20 个节点，补充长期稳定性与电池寿命的实测数据，并完善异常告警的误报率评估。"
+    ],
+    "keywords": ["环境监测", "低功耗设计", "边缘计算", "数据融合", "物联网"]
+  },
+  "abstract_en": {
+    "heading": "Abstract",
+    "paragraphs": [
+      "Indoor environmental parameters in university laboratories affect instrument lifetime and the reproducibility of experiments, while long-term monitoring with multiple nodes imposes strict requirements on power consumption and deployment cost. This paper presents a low-power environmental monitoring node for laboratory scenarios. A composite sensing unit for temperature, humidity and particulate matter is adopted, and data cleaning, moving-average denoising and outlier rejection are performed at the edge so that only aggregated features are transmitted, which reduces the duty cycle of wireless communication.",
+      "The contributions are threefold: the hardware structure and low-power scheduling strategy of the node are described; a lightweight edge fusion pipeline with a reproducible computational procedure is designed; and the relationship among sampling period, node count and average power is evaluated with simulated data. Results show that the average power decreases markedly when the sampling period is relaxed from 30 s to 120 s, while the root-mean-square error of temperature estimation remains acceptable."
+    ],
+    "keywords": ["environmental monitoring", "low-power design", "edge computing", "data fusion", "Internet of Things"]
+  },
+  "toc": true,
+  "toc_title": "目　录",
+  "sections": [
+    {"level": 1, "text": "1 引言"},
+    {"type": "p", "text": "实验室环境的温度、湿度与颗粒物浓度会随时间与人员活动显著波动。长期缺乏连续记录时，设备漂移、样品污染与实验条件偏移往往难以及时发现，导致结果不可复现。构建低成本、可长期运行的监测节点，是改善实验室质量管理的基础工作。"},
+    {"type": "p", "text": "然而，实验室场景的部署条件并不理想：供电插座有限、无线信号被金属设备遮挡、节点数量多且分散。若采用市售采集卡加常供电方案，布线成本与改造成本都较高；若采用电池供电的无线节点，则必须在采样频率与电池寿命之间做出取舍。本文的研究即围绕这一取舍展开。"},
+
+    {"level": 2, "text": "1.1 研究背景与问题"},
+    {"type": "p", "text": "现有商业环境监测产品多面向机房或仓储，采样周期固定、上报频率高，对实验室这类“参数变化缓慢但需要长期留存”的场景并不经济。另一方面，通用物联网平台的功能完整但抽象层次高，难以针对单一传感器做功耗优化。因此需要一个在节点侧即可完成大部分数据处理、只上传少量特征的轻量方案。"},
+
+    {"level": 2, "text": "1.2 本文主要工作"},
+    {"type": "p", "text": "本文的工作按以下三个层次组织："},
+    {"type": "list", "items": [
+      "给出监测节点的硬件结构与低功耗调度策略，明确传感器选型与工作模式切换条件；",
+      "设计边缘侧数据融合流程，包括异常值剔除、滑动平均降噪与特征聚合，并给出可复现的计算过程；",
+      "以模拟数据评估采样周期、节点数量与平均功耗、估计误差之间的关系，讨论工程取舍的边界。"
+    ]},
+
+    {"level": 1, "text": "2 系统设计"},
+    {"type": "p", "text": "系统由感知层、边缘层与应用层构成。感知层负责原始信号采集，边缘层在节点本地完成数据清洗与特征提取，应用层接收聚合结果并进行可视化与告警。本文的重点是边缘层，因为它直接决定了无线传输的占空比与节点功耗。"},
+
+    {"level": 2, "text": "2.1 总体结构"},
+    {"type": "p", "text": "节点以低功耗微控制器为核心，通过 I2C 连接温湿度传感器，通过串口连接颗粒物传感器。整机在“休眠—唤醒—采集—计算—上传”的循环中运行，各工作模式的时间占比如图1所示。为减少唤醒次数，调度器将多个采样任务对齐到同一时间窗内完成，从而摊薄唤醒开销。"},
+    {"type": "figure", "path": "figs/fig1_duty.png", "caption": "图1  60 s 采样周期下监测节点的时间分配", "note": "注：数据按单次循环的实测作业时序统计，四类模式的时间占比之和为 100%。", "width_cm": 14.0},
+
+    {"level": 2, "text": "2.2 数据采集与融合"},
+    {"type": "p", "text": "设第 k 个采样周期的温度观测值为 z，滑动平均窗口长度为 N，则滤波后的估计值按式（1）计算。"},
+    {"type": "equation", "latex": "\\hat{x}_k = \\frac{1}{N}\\sum_{i=0}^{N-1} z_{k-i}", "number": "（1）"},
+    {"type": "p", "text": "为衡量估计精度，采用均方根误差作为评价指标，其定义见式（2）。其中 M 为评估样本数，参考值记为 x。"},
+    {"type": "equation", "latex": "\\mathrm{RMSE} = \\sqrt{\\frac{1}{M}\\sum_{i=1}^{M}\\left( \\hat{x}_i - x_i \\right)^2}", "number": "（2）"},
+    {"type": "p", "text": "异常点剔除采用三倍标准差准则：当观测值与滑动均值的偏差超过三倍标准差时，该点不参与聚合，仅记入本地日志，待节点被巡检时一并导出。这一策略在保证实时性的同时，避免了异常值对特征统计的污染。"},
+
+    {"level": 1, "text": "3 实验与结果分析"},
+    {"type": "p", "text": "由于真实部署尚未完成，本章的评估基于模拟数据。模拟数据的生成方式、参数取值范围与评估指标均在表1中说明，所有数值仅用于说明格式与分析方法，不代表真实测量结果。"},
+
+    {"level": 2, "text": "3.1 实验设置"},
+    {"type": "p", "text": "实验固定节点数量为 12，考察采样周期从 30 s 放宽到 120 s 时平均功耗与均方根误差的变化。功耗按各工作模式的电流与占空比加权估计，误差按式（2）计算。"},
+    {"type": "table", "caption": "表1  不同采样周期下的功耗与误差（模拟数据）",
+     "headers": ["采样周期 / s", "平均电流 / mA", "平均功耗 / mW", "RMSE / ℃", "占空比 / %"],
+     "rows": [
+       ["30", "4.82", "15.9", "0.21", "12.4"],
+       ["60", "3.15", "10.4", "0.24", "7.8"],
+       ["90", "2.61", "8.6", "0.27", "5.6"],
+       ["120", "2.24", "7.4", "0.31", "4.3"]
+     ],
+     "widths": [3.6, 3.2, 3.2, 2.8, 2.7],
+     "aligns": ["center", "center", "center", "center", "center"],
+     "note": "注：表中数据为格式演示用模拟结果，由占空比模型估算得到，未经实测校验；RMSE 的参考值为同一时段的商用记录仪读数。"},
+
+    {"level": 2, "text": "3.2 结果与分析"},
+    {"type": "p", "text": "如图2所示，采样周期放宽后平均功耗近似线性下降，而误差上升较为平缓。这说明在温度变化缓慢的实验室环境中，通信占空比是功耗的主要来源，适当放宽采样周期是性价比最高的优化手段。"},
+    {"type": "figure", "path": "figs/fig2_power.png", "caption": "图2  采样周期与平均功耗的关系（模拟数据）", "note": "注：数据取自表1的平均功耗列；估计误差随采样周期上升的趋势见表1最后一列与正文讨论。", "width_cm": 14.0},
+    {"type": "p", "text": "当采样周期超过 120 s 后，误差上升速度加快，主要原因是在人员进出频繁的时段，温度变化的时间尺度接近采样间隔，滑动平均窗口无法有效抑制阶跃扰动。因此本文将 60—90 s 作为推荐工作区间。"},
+
+    {"level": 1, "text": "4 讨论"},
+    {"type": "p", "text": "本文方案的局限主要有两点。其一，功耗模型基于数据手册的典型电流值，未考虑电池内阻随温度变化的影响，实际寿命可能低于估计值。其二，异常点剔除依赖固定阈值，在传感器老化后需要重新标定，否则会同时抬高误剔除率与漏检率。"},
+    {"type": "p", "text": "与常供电方案相比，本方案在部署灵活性上具有优势，但在数据完整性上存在风险：节点离线期间的数据无法回溯。后续可通过在网关侧增加补采机制缓解这一问题。"},
+
+    {"level": 1, "text": "5 结论与展望"},
+    {"type": "p", "text": "本文设计了一种面向高校实验室的低功耗环境监测节点，给出了边缘数据融合流程，并通过模拟数据评估了采样周期与功耗、误差之间的关系。结果表明，在保证估计精度的前提下，将采样周期放宽至 60—90 s 可显著降低平均功耗。"},
+    {"type": "p", "text": "后续工作包括：在真实实验室部署不少于 20 个节点，补充长期稳定性与电池寿命的实测数据；完善异常告警的误报率评估；并将边缘融合流程移植到资源更受限的平台上进行对比。"},
+    {"type": "callout", "title": "说明", "text": "本文数字均为模拟结果，实测数据待部署完成后补充 [待补充/待核实]。"}
+  ],
+  "references": [
+    "全国信息与文献标准化技术委员会. 信息与文献 参考文献著录规则: GB/T 7714—2015[S]. 北京: 中国标准出版社, 2015.",
+    "LeCun Y, Bengio Y, Hinton G. Deep learning[J]. Nature, 2015, 521(7553): 436-444.",
+    "Bishop C M. Pattern recognition and machine learning[M]. New York: Springer, 2006: 1-58.",
+    "Okabe M, Ito K. Color universal design: how to make figures that are friendly to colorblind people[EB/OL]. https://jfly.uni-koeln.de/color/, 2008.",
+    "Ecma International. Office Open XML file formats: ECMA-376[S/OL]. Geneva: Ecma International, 2016."
+  ]
+}

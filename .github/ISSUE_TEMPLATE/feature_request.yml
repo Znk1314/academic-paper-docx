@@ -1,0 +1,43 @@
+name: 功能建议
+description: 新的排版能力、新的内容块、跨平台改进
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: 你遇到的问题
+      description: 现在的做法为什么不顺手？（不要直接跳到"加个 XX 参数"）
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: 期望的做法
+      description: 如果涉及格式变化，请说明它是否属于规范之外的扩展。
+    validations:
+      required: true
+
+  - type: dropdown
+    id: scope
+    attributes:
+      label: 影响范围
+      options:
+        - 内容模型字段（新增块类型）
+        - 格式库（docx_builder.py）
+        - 公式 DSL（omml_latex.py）
+        - 质检规则（qa_check.py）
+        - 图表生成（make_chart.py）
+        - 文档与示例
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: breaking
+    attributes:
+      label: 兼容性
+      options:
+        - label: 会改变现有文档的默认格式（属于破坏性变更，需要写进 CHANGELOG）
+          required: false
+        - label: 我可以用 PR 来实现
+          required: false

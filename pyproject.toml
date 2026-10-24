@@ -1,0 +1,27 @@
+# 本仓库不是 Python 包：它是一套"skill + 脚本"，以目录形式安装到 agent 的 skills 目录，
+# 或直接 git clone 使用。因此这里只放工具链配置（ruff / pytest），不做 PyPI 打包。
+
+[tool.ruff]
+line-length = 110
+target-version = "py39"
+extend-exclude = ["examples/demo/build", "docs"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B"]
+# 中文注释与中文字符串按字符计宽意义不大，且 CJK 宽度是 2，故忽略行宽
+ignore = ["E501"]
+
+[tool.ruff.lint.per-file-ignores]
+# postprocess 相关脚本靠 sys.path 注入导入同目录模块
+"scripts/apd.py" = ["E402"]
+"scripts/build_docx.py" = ["E402"]
+"examples/python_api.py" = ["E402"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["scripts"]
+addopts = "-ra"
+filterwarnings = [
+    "ignore::DeprecationWarning",
+    "ignore::FutureWarning",
+]

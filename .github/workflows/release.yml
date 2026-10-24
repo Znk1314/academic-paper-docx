@@ -1,0 +1,74 @@
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 已有标签（如 v1.0.0）
+        required: true
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.tag || github.ref }}
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Check tag matches scripts/_version.py
+        shell: bash
+        run: |
+          set -euo pipefail
+          version=$(python - <<'PY'
+          import pathlib, re
+          text = pathlib.Path("scripts/_version.py").read_text(encoding="utf-8")
+          print(re.search(r'"([0-9]+\.[0-9]+\.[0-9]+)"', text).group(1))
+          PY
+          )
+          tag="${{ github.event.inputs.tag || github.ref_name }}"
+          echo "version=$version tag=$tag"
+          if [ "v$version" != "$tag" ]; then
+            echo "::error::标签 $tag 与 scripts/_version.py ($version) 不一致"
+            exit 1
+          fi
+
+      - name: Smoke test before packaging
+        run: |
+          python -m pip install -r requirements-dev.txt
+          python -m pytest -q
+          python scripts/apd.py build examples/minimal/content.json -o build/minimal.docx
+          python scripts/apd.py qa build/minimal.docx
+
+      - name: Package skill bundle
+        shell: bash
+        run: |
+          set -euo pipefail
+          ref="${{ github.event.inputs.tag || github.ref_name }}"
+          mkdir -p dist
+          git archive --format=zip --prefix=academic-paper-docx/ \
+            -o "dist/academic-paper-docx-${ref}.zip" HEAD
+
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: dist/*.zip
+          generate_release_notes: true
+          body: |
+            ## 安装
+
+            解压后把 `academic-paper-docx/` 放进 agent 的 skills 目录，例如：
+
+            ```bash
+            unzip academic-paper-docx-*.zip -d ~/.dsh/skills/
+            python -m pip install -r ~/.dsh/skills/academic-paper-docx/requirements.txt
+            ```
+
+            变更见 [CHANGELOG.md](CHANGELOG.md)。
