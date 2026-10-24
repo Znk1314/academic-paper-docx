@@ -1,8 +1,8 @@
 blank_issues_enabled: false
 contact_links:
   - name: 使用问题 / 讨论
-    url: https://github.com/OWNER/academic-paper-docx/discussions
+    url: https://github.com/Znk1314/academic-paper-docx/discussions
     about: 不知道怎么填内容模型、想问某个格式怎么调，先在这里问。
   - name: 安全漏洞
-    url: https://github.com/OWNER/academic-paper-docx/security/advisories/new
+    url: https://github.com/Znk1314/academic-paper-docx/security/advisories/new
     about: 请勿用公开 issue 报告安全问题。

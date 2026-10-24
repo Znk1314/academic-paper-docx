@@ -41,7 +41,7 @@
 - `install.ps1` / `install.sh`：一键安装到 DSH / Codex / Claude 等 agent 的 skills 目录
 - `references/`：规范全文、交付前核对清单、已知坑与修复
 - `examples/`：最小示例、完整样例、Python API 示例
-- 测试：81 个 pytest 用例覆盖页面、样式、三线表、图片、公式、质检、图表与 CLI
+- 测试：84 个 pytest 用例覆盖页面、样式、三线表、图片、公式、质检、图表与 CLI
 - CI：Windows / Linux / macOS × Python 3.9 / 3.12
 
 ### Fixed
@@ -51,6 +51,11 @@
 - `-Cm(0.74)` 取负后 `Length` 退化为 `int`，被当作磅值再 ×20；新增 `_to_length()` 兜底
 - 样式中的 `w:asciiTheme` 会覆盖显式字体，导致"宋体/黑体"在 Word 里不生效
 - `.ps1` 在 Windows PowerShell 5.1 下按 ANSI 解析导致中文乱码与语法错误，改为 UTF-8 BOM
+- **CLI 在非 UTF-8 控制台（Windows 管道 = cp1252）打印中文时抛 `UnicodeEncodeError`
+  并退出码 1**，导致 CI 的 Windows 作业全红。新增 `scripts/_console.py`，各入口
+  `main()` 开头把 stdout/stderr 重配为 UTF-8，并加回归测试
+- Pages 工作流在仓库未开启 Pages 时于 "Configure Pages" 失败；`configure-pages` 增加
+  `enablement: true` 自动开启
 
-[Unreleased]: https://github.com/OWNER/academic-paper-docx/compare/v1.0.0...HEAD
-[1.0.0]: https://github.com/OWNER/academic-paper-docx/releases/tag/v1.0.0
+[Unreleased]: https://github.com/Znk1314/academic-paper-docx/compare/v1.0.0...HEAD
+[1.0.0]: https://github.com/Znk1314/academic-paper-docx/releases/tag/v1.0.0

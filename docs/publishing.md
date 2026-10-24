@@ -1,26 +1,26 @@
 # 发布清单
 
-仓库已经搭好，剩下的是把它推到你自己的 GitHub 账号上。以下步骤按顺序做一遍即可。
+仓库已经搭好，剩下的是把它推到你的 GitHub 账号上。以下步骤按顺序做一遍即可。
 
-## 1. 替换 OWNER
+## 1. 仓库地址（本仓库已完成）
 
-README、CHANGELOG、SECURITY、`.github/ISSUE_TEMPLATE/config.yml` 里的 `OWNER` 需要换成你的
-GitHub 用户名（或组织名）。二选一：
+所有链接与 badge 都指向 `Znk1314/academic-paper-docx`，**不需要再改**。
+只有 fork 到别的账号、或改了仓库名时才需要重新替换：
 
 ```bash
 # 方式 A：全局替换（Linux / macOS / Git Bash）
-grep -rl "OWNER" --include="*.md" --include="*.yml" --include="*.toml" . \
-  | xargs sed -i 's|OWNER/academic-paper-docx|your-name/academic-paper-docx|g'
+grep -rl "Znk1314/academic-paper-docx" --include="*.md" --include="*.yml" --include="*.html" . \
+  | xargs sed -i 's|Znk1314/academic-paper-docx|your-name/academic-paper-docx|g'
 ```
 
 ```powershell
 # 方式 B：PowerShell
-Get-ChildItem -Recurse -File -Include *.md,*.yml,*.toml |
+Get-ChildItem -Recurse -File -Include *.md,*.yml,*.html |
   ForEach-Object {
     $c = [System.IO.File]::ReadAllText($_.FullName, [System.Text.UTF8Encoding]::new($false))
-    if ($c -match 'OWNER') {
+    if ($c -match 'Znk1314/academic-paper-docx') {
       [System.IO.File]::WriteAllText($_.FullName,
-        ($c -replace 'OWNER/academic-paper-docx', 'your-name/academic-paper-docx'),
+        ($c -replace 'Znk1314/academic-paper-docx', 'your-name/academic-paper-docx'),
         [System.Text.UTF8Encoding]::new($false))
       "patched: $($_.Name)"
     }

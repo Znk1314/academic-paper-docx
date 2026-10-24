@@ -4,7 +4,7 @@
 > 你只提供内容，脚本保证页面、字体、字号、配色、标题层级、三线表、图题表题、OMML 公式、
 > 自动目录、页眉页脚、参考文献格式、默认页面视图全部正确。
 
-[![CI](https://github.com/OWNER/academic-paper-docx/actions/workflows/ci.yml/badge.svg)](https://github.com/OWNER/academic-paper-docx/actions/workflows/ci.yml)
+[![CI](https://github.com/Znk1314/academic-paper-docx/actions/workflows/ci.yml/badge.svg)](https://github.com/Znk1314/academic-paper-docx/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![Python](https://img.shields.io/badge/python-3.9%2B-blue.svg)](pyproject.toml)
 [![QA](https://img.shields.io/badge/QA-35%20checks-009E73.svg)](scripts/qa_check.py)
@@ -77,13 +77,13 @@
 
 ```powershell
 # Windows (PowerShell)
-git clone https://github.com/OWNER/academic-paper-docx "$env:USERPROFILE\.dsh\skills\academic-paper-docx"
+git clone https://github.com/Znk1314/academic-paper-docx "$env:USERPROFILE\.dsh\skills\academic-paper-docx"
 python -m pip install -r "$env:USERPROFILE\.dsh\skills\academic-paper-docx\requirements.txt"
 ```
 
 ```bash
 # macOS / Linux
-git clone https://github.com/OWNER/academic-paper-docx ~/.dsh/skills/academic-paper-docx
+git clone https://github.com/Znk1314/academic-paper-docx ~/.dsh/skills/academic-paper-docx
 python3 -m pip install -r ~/.dsh/skills/academic-paper-docx/requirements.txt
 ```
 
@@ -139,7 +139,7 @@ agent 应该会读 `SKILL.md` → 写 `content.json` → 调 `scripts/apd.py bui
 把下面这段直接发给支持「执行命令 + 访问网络」的 agent：
 
 ```text
-把 https://github.com/OWNER/academic-paper-docx 克隆到 ~/.dsh/skills/academic-paper-docx
+把 https://github.com/Znk1314/academic-paper-docx 克隆到 ~/.dsh/skills/academic-paper-docx
 （若已存在则先备份），然后执行 python -m pip install -r <该目录>/requirements.txt，
 最后运行 <该目录>/scripts/apd.py doctor 并把结果告诉我。
 ```
@@ -157,7 +157,7 @@ agent 应该会读 `SKILL.md` → 写 `content.json` → 调 `scripts/apd.py bui
 ## 当普通工具用（不装成 skill）
 
 ```bash
-git clone https://github.com/OWNER/academic-paper-docx
+git clone https://github.com/Znk1314/academic-paper-docx
 cd academic-paper-docx
 python -m pip install -r requirements.txt
 python scripts/apd.py doctor                 # 环境自检

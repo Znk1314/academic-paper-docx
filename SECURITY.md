@@ -18,7 +18,7 @@
 
 ## 报告漏洞
 
-请使用 GitHub 的 [私密漏洞报告](https://github.com/OWNER/academic-paper-docx/security/advisories/new)，
+请使用 GitHub 的 [私密漏洞报告](https://github.com/Znk1314/academic-paper-docx/security/advisories/new)，
 不要开公开 issue。请在报告里包含：影响版本（`scripts/_version.py`）、复现步骤、
 以及你判断的影响面。一般会在 7 天内回复。
 

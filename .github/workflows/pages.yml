@@ -28,6 +28,9 @@ jobs:
 
       - name: Configure Pages
         uses: actions/configure-pages@v5
+        with:
+          # 仓库还没开 Pages 时自动开启（否则该步骤会报 "Get Pages site failed"）
+          enablement: true
 
       - name: Upload static site
         uses: actions/upload-pages-artifact@v3

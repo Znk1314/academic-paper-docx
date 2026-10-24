@@ -16,6 +16,8 @@ import json
 import os
 import sys
 
+import _console
+
 HERE = os.path.dirname(os.path.abspath(__file__))
 if HERE not in sys.path:
     sys.path.insert(0, HERE)
@@ -33,6 +35,7 @@ def _resolve_figures(model, base_dir):
 
 
 def main(argv=None):
+    _console.setup()
     ap = argparse.ArgumentParser(description="生成规范格式的学术论文 / 研究报告 docx")
     ap.add_argument("model", help="内容模型 JSON 路径")
     ap.add_argument("-o", "--output", help="输出 docx 路径（默认与 JSON 同名）")

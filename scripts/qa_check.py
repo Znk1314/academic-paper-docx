@@ -16,6 +16,7 @@ import os
 import re
 import sys
 
+import _console
 from docx import Document
 from docx.oxml.ns import qn
 from docx.shared import Emu
@@ -652,6 +653,7 @@ GROUPS = ["页面", "视图", "样式", "正文", "列表", "表格", "图表", 
 
 
 def main(argv=None):
+    _console.setup()
     ap = argparse.ArgumentParser(description="按规范质检 docx")
     ap.add_argument("docx")
     ap.add_argument("--pdf", help="同时体检导出的 PDF")

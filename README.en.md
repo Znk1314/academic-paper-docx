@@ -5,7 +5,7 @@
 > three-line tables, figure/table captions, native OMML equations, auto TOC, headers/footers,
 > GB/T 7714 references, and a document that opens in Print Layout at 100%.
 
-[![CI](https://github.com/OWNER/academic-paper-docx/actions/workflows/ci.yml/badge.svg)](https://github.com/OWNER/academic-paper-docx/actions/workflows/ci.yml)
+[![CI](https://github.com/Znk1314/academic-paper-docx/actions/workflows/ci.yml/badge.svg)](https://github.com/Znk1314/academic-paper-docx/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![Python](https://img.shields.io/badge/python-3.9%2B-blue.svg)](pyproject.toml)
 
@@ -70,13 +70,13 @@ The installed layout must look like this (`SKILL.md` at the top of the skill fol
 
 ```bash
 # macOS / Linux
-git clone https://github.com/OWNER/academic-paper-docx ~/.dsh/skills/academic-paper-docx
+git clone https://github.com/Znk1314/academic-paper-docx ~/.dsh/skills/academic-paper-docx
 python3 -m pip install -r ~/.dsh/skills/academic-paper-docx/requirements.txt
 ```
 
 ```powershell
 # Windows
-git clone https://github.com/OWNER/academic-paper-docx "$env:USERPROFILE\.dsh\skills\academic-paper-docx"
+git clone https://github.com/Znk1314/academic-paper-docx "$env:USERPROFILE\.dsh\skills\academic-paper-docx"
 python -m pip install -r "$env:USERPROFILE\.dsh\skills\academic-paper-docx\requirements.txt"
 ```
 
@@ -125,7 +125,7 @@ ask for something small, e.g. *"Generate a two-page course report with a three-l
 ## As a plain tool (no skill install)
 
 ```bash
-git clone https://github.com/OWNER/academic-paper-docx && cd academic-paper-docx
+git clone https://github.com/Znk1314/academic-paper-docx && cd academic-paper-docx
 python -m pip install -r requirements.txt
 python scripts/apd.py doctor                 # environment self-check
 python scripts/apd.py demo -o build/demo     # full pipeline on the bundled sample

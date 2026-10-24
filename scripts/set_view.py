@@ -20,6 +20,7 @@ import sys
 import tempfile
 import zipfile
 
+import _console
 from lxml import etree
 
 W = "http://schemas.openxmlformats.org/wordprocessingml/2006/main"
@@ -126,6 +127,7 @@ def read_view(path: str):
 
 
 def main(argv=None):
+    _console.setup()
     ap = argparse.ArgumentParser(description="把 docx 默认视图固定为页面视图 + 100%")
     ap.add_argument("docx")
     ap.add_argument("--zoom", type=int, default=100)

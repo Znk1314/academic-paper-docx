@@ -27,6 +27,7 @@ import json
 import os
 import sys
 
+import _console
 from PIL import Image, ImageDraw, ImageFont
 
 PALETTE = {
@@ -269,6 +270,7 @@ def render(spec: dict, out_path: str) -> str:
 
 
 def main(argv=None):
+    _console.setup()
     ap = argparse.ArgumentParser(description="学术图表 PNG 生成（Pillow）")
     ap.add_argument("spec", help="图表 JSON 路径")
     ap.add_argument("-o", "--output", required=True)

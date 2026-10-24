@@ -17,6 +17,8 @@ import argparse
 import os
 import sys
 
+import _console
+
 try:
     import pymupdf as fitz  # PyMuPDF
 except ImportError:  # pragma: no cover
@@ -30,6 +32,7 @@ RAW_FIELD_MARKS = ["TOC \\o", "TOC\\o", "PAGEREF", "MERGEFORMAT", "HYPERLINK \\l
 
 
 def main(argv=None):
+    _console.setup()
     ap = argparse.ArgumentParser(description="PDF 逐页预览 + 基础体检")
     ap.add_argument("pdf")
     ap.add_argument("-o", "--outdir", default=None)

@@ -22,6 +22,8 @@ import shutil
 import subprocess
 import sys
 
+import _console
+
 HERE = os.path.dirname(os.path.abspath(__file__))
 REPO = os.path.dirname(HERE)
 if HERE not in sys.path:
@@ -273,6 +275,7 @@ def build_parser():
 
 
 def main(argv=None):
+    _console.setup()
     args = build_parser().parse_args(argv)
     try:
         return args.func(args)
