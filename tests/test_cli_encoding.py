@@ -58,3 +58,15 @@ def test_help_survives_non_utf8_stdout(repo):
     result = _run(repo, ["--help"])
     assert result.returncode == 0, result.stderr.decode("utf-8", "replace")
     assert "环境自检" in result.stdout.decode("utf-8", "strict")
+
+
+def test_python_api_example_survives_non_utf8_stdout(repo):
+    """CI 会直接跑这个示例脚本，它也必须不崩。"""
+    result = subprocess.run(
+        [sys.executable, os.path.join(repo, "examples", "python_api.py")],
+        capture_output=True,
+        env=_env_with_encoding("cp1252"),
+        cwd=repo,
+    )
+    assert result.returncode == 0, result.stderr.decode("utf-8", "replace")
+    assert "生成完成" in result.stdout.decode("utf-8", "strict")

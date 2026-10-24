@@ -17,7 +17,10 @@ SCRIPTS = os.path.join(os.path.dirname(HERE), "scripts")
 sys.path.insert(0, SCRIPTS)
 
 
+import _console  # noqa: E402
 from docx_builder import PaperBuilder, enable_update_fields, set_print_view  # noqa: E402
+
+_console.setup()  # 控制台非 UTF-8（如 Windows 管道 cp1252）时也能打印中文
 
 META = {
     "org": "某某大学",
