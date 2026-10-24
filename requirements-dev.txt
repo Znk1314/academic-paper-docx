@@ -1,4 +1,4 @@
 # 开发依赖（运行时依赖见 requirements.txt）
 -r requirements.txt
-pytest>=8.0
-ruff>=0.6
+pytest>=9.1.1
+ruff>=0.17.1
