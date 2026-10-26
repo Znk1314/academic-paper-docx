@@ -30,6 +30,14 @@
 
 ### Changed
 
+- **开箱可用性**：`apd doctor` 分级报告（必需/推荐/可选），缺 matplotlib 只跳过出图；
+  `apd figure` / `render_preview` 缺依赖时给一行安装提示并返回 2，不再抛栈
+- `install.ps1` 默认自动 `pip install -r requirements.txt`（`-SkipDeps` 可跳过）
+- 中文字体支持 `APD_CJK_FONT` 环境变量覆盖；找不到中文字体时提示一次
+- `requirements.txt` 分层注释（必需 / 出图 / 可选 PyMuPDF）
+- `apd figure` 增加 `--palette`（与 `figures.py --palette` 等价）
+- README 新增「三步跑起来」与「环境要求」表；SKILL.md 顶部补一句先跑 doctor
+
 - 三线表**栏目线由 1 pt 改为 0.75 pt**（顶/底线保持 1.5 pt），对齐期刊惯例
 - 图内字号调整为六号（8.5 pt）、轴线 0.7 pt，按 140 mm 插入时不再缩放
 - `make_chart.py` 保留为兼容入口（旧 `width_px`/`y_min` 字段自动映射），内部改走 figures.py

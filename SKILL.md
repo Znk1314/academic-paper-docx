@@ -6,6 +6,10 @@ whenToUse: 用户要求产出 .docx 论文/报告/毕业设计，或要求按学
 
 # 学术论文 Word 生成（academic-paper-docx）
 
+> **先跑通再动笔**：`python <SKILL_DIR>/scripts/apd.py doctor` 会告诉你这台机器
+> 能做什么、缺什么。只装 python-docx + lxml 就能出完整 docx；matplotlib 只在出图时用。
+> 缺依赖时命令会给一行安装提示，不会抛栈。
+
 把"内容模型"交给固定格式库，产出**格式合规、可编辑、可直接打印**的 Word 论文/报告。
 内容可以任意变化，**格式参数不要改**——这是本 skill 的全部价值。
 

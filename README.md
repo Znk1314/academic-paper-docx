@@ -54,6 +54,24 @@
 折线（3 系列 × 7 点、SD 误差线、`*`/`**` 显著性）、分组柱状（3 系列 × 4 组）、
 散点（2 系列 × 12 点）、箱线（4 组）、热图（cividis 顺序色板）。
 
+## 三步跑起来（推荐）
+
+```bash
+# 1) 装到 agent 的 skills 目录并自动装依赖（Windows）
+powershell -ExecutionPolicy Bypass -File install.ps1 -Target dsh
+#    macOS / Linux 或手动：git clone 到 ~/.dsh/skills/ 后
+#    python -m pip install -r requirements.txt
+
+# 2) 自检（告诉你"能做什么、缺什么"，缺了也不影响核心）
+python scripts/apd.py doctor
+
+# 3) 跑一遍完整示例：6 张图 + 三线表 + 公式 + 目录 → docx/PDF/质检
+python scripts/apd.py demo -o build/demo
+```
+
+不需要 Word、不需要 Origin；中文图内文字用系统的雅黑/黑体/Noto，
+没有中文字体时用 `APD_CJK_FONT=<字体名>` 指定即可。
+
 ## 环境要求（先看这张表）
 
 **只有 python-docx 与 lxml 是硬性依赖**，其余能力可缺，缺了只少一块功能、不会报错退出：
