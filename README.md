@@ -42,17 +42,17 @@
 |---|---|
 | ![封面](docs/screenshots/01-cover.png) | ![摘要](docs/screenshots/02-abstract.png) |
 
-| 三线表 + 多系列折线图（3 色 7 点 + 误差线 + 显著性） | 分组柱状图 |
+| 三线表 + 多系列折线图（3 色 7 点 + 误差线 + 显著性） | 分组柱状图（3 系列 × 4 组） |
 |---|---|
 | ![表格与折线图](docs/screenshots/03-table-figure.png) | ![分组柱状](docs/screenshots/04-figures-compare.png) |
 
-| 箱线图 · 散点图 · 热图（同一页三种图型） |
-|---|
-| ![混合图型](docs/screenshots/05-figures-mixed.png) |
+| 散点图 + 箱线图（同一页两种图型） | 热图（cividis 顺序色板，色盲安全） |
+|---|---|
+| ![散点与箱线](docs/screenshots/05-figures-mixed.png) | ![热图](docs/screenshots/06-heatmap.png) |
 
 完整 10 页、6 张图见 [docs/demo/demo_report.pdf](docs/demo/demo_report.pdf)：
-折线（3 系列 × 7 点、SD 误差线、`*`/`**` 显著性）、分组柱状（3 系列 × 4 组）、
-散点（2 系列 × 12 点）、箱线（4 组）、热图（cividis 顺序色板）。
+柱状（4 类，零基线）、折线（3 系列 × 7 点、SD 误差线、`*`/`**` 显著性）、
+分组柱状（3 系列 × 4 组）、散点（2 系列 × 12 点）、箱线（4 组）、热图（cividis 顺序色板）。
 
 ## 三步跑起来（推荐）
 
