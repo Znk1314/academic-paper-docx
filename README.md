@@ -178,8 +178,9 @@ python scripts/apd.py build work/content.json -o work/report.docx
 # 2) 更新域与目录、导出 PDF、把视图固定为页面视图（Windows + Word）
 python scripts/apd.py post work/report.docx
 
-# 3) 质检 + 逐页预览
+# 3) 质检 + 文风自检 + 逐页预览
 python scripts/apd.py qa work/report.docx --pdf work/report.pdf
+python scripts/apd.py tone --docx work/report.docx
 python scripts/apd.py preview work/report.pdf -o work/preview
 ```
 
@@ -227,21 +228,25 @@ python scripts/apd.py demo -o build/demo
 │  references  │ ───────────► │ omml_latex.py    │          ┌────────────┐
 └──────────────┘              └──────────────────┘          │ report.pdf │
                                                              └─────┬──────┘
-                            ┌──────────────────┐   QA 35 项        │ 逐页渲染
+                            ┌──────────────────┐   QA 36 项        │ 逐页渲染
                             │ qa_check.py      │ ◄─────────────────┤
                             └──────────────────┘                   ▼
                                                         preview/page-*.png
+                            ┌──────────────────┐   AI 味评分
+                            │ ai_tone_check.py │ ◄── 正文文本
+                            └──────────────────┘
 ```
 
 ```
 academic-paper-docx/
 ├── SKILL.md                  agent 入口（DSH / Codex / Claude 通用）
 ├── scripts/
-│   ├── apd.py                统一 CLI：doctor / build / post / qa / preview / chart / demo
+│   ├── apd.py                统一 CLI：doctor / build / post / qa / preview / chart / tone / demo
 │   ├── docx_builder.py       格式库 + PaperBuilder API（SPEC 在文件顶部）
 │   ├── omml_latex.py         LaTeX 子集 → OMML（零外部依赖）
+│   ├── ai_tone_check.py      「AI 味」启发式检测（只报警，不改稿）
 │   ├── build_docx.py         内容模型 JSON → docx
-│   ├── qa_check.py           35 项规范质检
+│   ├── qa_check.py           36 项规范质检（含文风提示项）
 │   ├── make_chart.py         Okabe-Ito 配色图表（Pillow，无需 matplotlib）
 │   ├── render_preview.py     PDF → 逐页 PNG + 空白页/书签体检
 │   ├── postprocess.ps1       Word COM：更新域/目录 + PDF + 固定 print 视图
@@ -249,13 +254,14 @@ academic-paper-docx/
 │   └── set_view.py           只改 settings.xml，强制页面视图
 ├── references/
 │   ├── format-spec.md        规范全文（权威）
+│   ├── anti-ai-academic-zh.md 「AI 味」规则 + 学术豁免清单 + 改写协议
 │   ├── checklist.md          交付前人工核对清单
 │   └── troubleshooting.md    已知坑与修复
 ├── examples/
 │   ├── minimal/content.json  最小示例（一页，无图）
 │   ├── demo/                 完整样例：内容模型 + 图表规格 + 配图
 │   └── python_api.py         不用 JSON、直接写 Python 的示例
-├── tests/                    81 个 pytest 用例
+├── tests/                    104 个 pytest 用例
 ├── docs/                     落地页 + 截图 + 示例 PDF
 └── .github/                  CI / Release / Pages / Issue 模板
 ```
@@ -326,14 +332,45 @@ python scripts/apd.py qa work/report.docx --spec work/spec.json
     OK   公式编号连续、位于右侧单元格
 ...
 ==============================================================================
-通过 35 项，警告 1 项，失败 0 项
+通过 36 项，警告 1 项，失败 0 项
 结论：符合规范。
 ```
 
-35 项覆盖：页面几何、默认视图、三个核心样式、正文缩进/行距/对齐、列表形态、
+36 项覆盖（加 PDF 体检为 37 项）：页面几何、默认视图、三个核心样式、正文缩进/行距/对齐、列表形态、
 三线表边框与表头、图表题字号/颜色/编号连续性、图片等比与宽度上限、OMML 与编号、
-TOC 域、页眉页脚域、参考文献缩进、交叉引用、字体白名单、空白页、占位符残留。
+TOC 域、页眉页脚域、参考文献缩进、交叉引用、字体白名单、空白页、占位符残留、文风提示。
 `--strict` 把 WARN 也当失败，适合 CI 门禁。
+
+## 文风：去掉「AI 味」
+
+排版对完之后，内容本身还可能一眼就是模型写的。这一层来自
+[blader/humanizer](https://github.com/blader/humanizer) 与
+[op7418/Humanizer-zh](https://github.com/op7418/Humanizer-zh) 的思路，
+但按**学术语体**重写了规则与豁免：
+
+- 规则文件：[references/anti-ai-academic-zh.md](references/anti-ai-academic-zh.md)
+  （S/A/B 三级强度、12 类典型句的 before/after、**学术豁免清单**、改写协议）
+- 检测器：`scripts/ai_tone_check.py` —— 词典 + 正则 + 结构指标（句长变异、连接词密度、
+  数字密度、段首复读标题），输出**规则编号 + 段落号 + 原句 + 改法**，只报警不改稿。
+
+```bash
+python scripts/apd.py tone --docx work/report.docx        # 给已生成的文档打分定位
+python scripts/apd.py tone --json work/content.json       # 写内容模型时就能查
+python scripts/apd.py tone --json work/content.json --max-score 40   # 超阈值退出码 1
+```
+
+实测（仓库自带样例，同一套规则）：
+
+| 文本 | 分数 | 等级 | 主要命中 |
+|---|---|---|---|
+| `examples/demo/content_model.json`（我按规范写的正文） | 8 | 清爽 | S2.4 ×1（"这说明…"这句其实带条件，属于启发式的过度报警） |
+| 刻意堆砌的对照组（随着…、不仅…更是…、专家认为、综上所述…） | 100 | 重 | S2.1 / S2.2 / S2.3 / S2.12 / A2.5 / A2.7 |
+
+三条设计取舍，避免把工具做成"词表黑名单"：
+
+1. **只报警，不判身份**：模板化公文、翻译腔同样会高分；分数低也不等于合格。
+2. **数据压倒拔高**：同一句里带数字/百分比时，"显著提升"不报。
+3. **学术豁免默认不报**：方法段的被动句、术语化名词化、必要限定、引用格式、图表题注。
 
 ## 跨平台
 
@@ -349,7 +386,7 @@ TOC 域、页眉页脚域、参考文献缩进、交叉引用、字体白名单�
 ```bash
 python -m pip install -r requirements-dev.txt
 python -m ruff check .
-python -m pytest -q      # 81 passed
+python -m pytest -q      # 104 passed
 ```
 
 用例覆盖：页面几何、三个核心样式、三线表边框、表头重复、图片等比与宽度限制、

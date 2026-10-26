@@ -613,6 +613,33 @@ def check_placeholders(doc):
         COUNTS["WARN"] += 1
 
 
+def check_ai_tone(path):
+    """AI 味只做提示：分数是启发式的，不判断作者身份，也绝不判 FAIL。"""
+    try:
+        import ai_tone_check
+    except Exception as exc:  # pragma: no cover - 模块缺失时不阻断质检
+        warn_if("文风", "AI 味检测跳过", True, str(exc))
+        return
+    try:
+        paragraphs, name = ai_tone_check.collect_paragraphs_docx(path)
+        report = ai_tone_check.analyze(paragraphs, name)
+    except Exception as exc:  # pragma: no cover
+        warn_if("文风", "AI 味检测跳过", True, str(exc))
+        return
+
+    score = report.score
+    top = []
+    for hit in report.hits:
+        if hit.rule_id not in top:
+            top.append(hit.rule_id)
+        if len(top) >= 3:
+            break
+    detail = "得分 %d/100（%s）%s；详见 references/anti-ai-academic-zh.md" % (
+        score, ai_tone_check.grade(score),
+        "，主要命中：%s" % "/".join(top) if top else "")
+    check("文风", "AI 味检测（提示项，不判失败）", score < 40, detail, warn=True)
+
+
 def check_runs_fonts(doc):
     bad = []
     for p in doc.paragraphs:
@@ -649,7 +676,7 @@ def check_blank_pages(doc):
 
 GROUPS = ["页面", "视图", "样式", "正文", "列表", "表格", "图表", "图片",
           "公式", "目录", "页眉页脚", "参考文献", "交叉引用", "字体", "版式",
-          "内容"]
+          "内容", "文风"]
 
 
 def main(argv=None):
@@ -690,6 +717,7 @@ def main(argv=None):
     check_runs_fonts(doc)
     check_blank_pages(doc)
     check_placeholders(doc)
+    check_ai_tone(path)
 
     if args.pdf:
         try:

@@ -16,7 +16,7 @@ whenToUse: 用户要求产出 .docx 论文/报告/毕业设计，或要求按学
 > `python -m pip install -r <本目录>/requirements.txt`，重启 agent 生效。
 > 详细步骤与排障见 `README.md` 的「安装」章节。
 
-## 0. 三条硬规矩
+## 0. 四条硬规矩
 
 1. **不要手写 python-docx 代码去拼格式**。格式已在 `scripts/docx_builder.py` 里实现，
    你只需要写**内容模型 JSON**（或调用 Python API）。
@@ -24,6 +24,10 @@ whenToUse: 用户要求产出 .docx 论文/报告/毕业设计，或要求按学
    必须全部替换成用户真实内容。
 3. **不要虚构数据/文献**。无法确认的数值、指标、文献一律标注 `[待补充/待核实]`，
    模拟数据必须在表注/图注里写明"模拟数据"。
+4. **正文按「人话」写，不按模板写**。写作时就要避开 AI 味（空转意义句、数据缺席的拔高、
+   假对比、段末复述、元话语铺垫、术语漂移），规则见
+   `references/anti-ai-academic-zh.md`，交付前跑 `scripts/apd.py tone` 自检。
+   注意：学术文体里的**被动句、名词化术语、必要限定不是 AI 味**，别乱洗。
 
 ## 1. 判断环境（先做，10 秒）
 
@@ -138,13 +142,15 @@ LibreOffice 不会更新 TOC 域，文档已设 `w:updateFields`，用户用 Wor
 ```bash
 python <SKILL_DIR>/scripts/qa_check.py work/report.docx --pdf work/report.pdf
 python <SKILL_DIR>/scripts/render_preview.py work/report.pdf -o work/preview
+python <SKILL_DIR>/scripts/apd.py tone --docx work/report.docx     # 文风自检
 ```
 
 > 如果第 3 步用了 `--spec` 整体换配色/字号，质检也要带同一份：
 > `qa_check.py work/report.docx --spec work/spec.json`，否则颜色/字号检查项会报 FAIL。
 
 - `qa_check.py` 把规范变成 30+ 项检查（页面/视图/样式/三线表/图表题/图片等比/OMML/目录/
-  页眉页脚/参考文献/字体/占位符…），有 FAIL 必须修到通过。
+  页眉页脚/参考文献/字体/占位符/文风…），有 FAIL 必须修到通过。文风一项**只报 WARN 不判失败**
+  （分数是启发式的，见 §11）。
 - `render_preview.py` 把 PDF 逐页转 PNG，并自动查空白页、未定义书签、原始域代码。
 - **必须真的打开预览图逐页看**：孤行、图题与图不同页、表格只剩表头、算式错位这类问题机器查不出来。
 - 人工核对还有 `references/checklist.md`。
@@ -217,28 +223,63 @@ academic-paper-docx/
 ├── README.md                   项目说明（GitHub 首页）
 ├── requirements.txt
 ├── scripts/
-│   ├── apd.py                  统一 CLI：doctor/build/post/qa/preview/chart/demo
+│   ├── apd.py                  统一 CLI：doctor/build/post/qa/preview/chart/tone/demo
 │   ├── build_docx.py           内容模型 JSON → docx（主入口）
 │   ├── docx_builder.py         格式库 / Python API（SPEC 在文件顶部）
 │   ├── omml_latex.py           LaTeX 子集 → OMML
+│   ├── ai_tone_check.py        「AI 味」启发式检测（只报警，不改稿）
 │   ├── make_chart.py           规范配色图表 PNG
 │   ├── postprocess.ps1         Word COM：更新域/目录 + PDF + 固定视图
 │   ├── postprocess.sh          LibreOffice 兜底
 │   ├── set_view.py             只改 settings.xml 强制 print 视图
 │   ├── render_preview.py       PDF → PNG 逐页预览 + 体检
-│   └── qa_check.py             规范自动质检（35 项）
+│   └── qa_check.py             规范自动质检（36 项，含文风提示项）
 ├── references/
 │   ├── format-spec.md          完整规范（权威，35 KB）
+│   ├── anti-ai-academic-zh.md  「AI 味」规则、学术豁免清单、改写协议
 │   ├── checklist.md            交付前人工核对清单
 │   └── troubleshooting.md      已知坑与修复
 ├── examples/
 │   ├── minimal/content.json    最小示例（一页，无图）—— 建议从这里开始
 │   ├── demo/                   完整样例（content_model.json + charts + figs）
 │   └── python_api.py           Python API 示例
-├── tests/                      81 个 pytest 用例（改格式后跑一遍）
+├── tests/                      104 个 pytest 用例（改格式后跑一遍）
 └── docs/                       落地页 + 截图 + 示例 PDF
 ```
 
 > 改了 `scripts/` 里的格式逻辑后，务必跑 `python -m pytest -q` 与
 > `python scripts/apd.py qa` 验证，不要只靠肉眼。
+
+## 11. 正文的「AI 味」：怎么认、怎么改、哪里不能改
+
+完整规则在 `references/anti-ai-academic-zh.md`（含 before/after 与学术豁免清单）。
+这里只留执行要点。
+
+**写作时（不是写完再洗）就避开这 6 类**：
+
+| 类别 | 典型句 | 改成 |
+|---|---|---|
+| 空转意义句 | 具有重要的理论意义和现实价值 | 这个结论约束了什么 |
+| 数据缺席的拔高 | 显著提升了精度 | 指标 + 数值 + 对比 + 条件 |
+| 假对比/假递进 | 不仅是…更是…；不是…而是… | 直接说肯定项 |
+| 段末复述收尾 | 由此可见…的重要性 | 删掉，或写带条件的推论 |
+| 元话语铺垫 | 本节将…；随着…的快速发展 | 直接给内容 |
+| 术语漂移 | 节点/采集端/终端设备混用 | 首次定义后固定不变 |
+
+**不要洗掉的（学术语体，不是 AI 味）**：方法段的被动句、术语化名词化（收敛性、有限元分析）、
+必要限定（可能/尚未验证）、每章一次的"综上所述"、引用格式、公式符号、图表题注、参考文献。
+
+**改写协议**：先标记（S 一次即改 / A 重复即改 / B 需凑证据）→ 再重写（不新增事实、不删独立信息、
+不改确定程度、术语固定、句长交替）→ 后检（朗读 + 查 S 级残留）→ 直接交成稿。
+
+**自检**：
+
+```bash
+python <SKILL_DIR>/scripts/apd.py tone --docx work/report.docx
+python <SKILL_DIR>/scripts/apd.py tone --json work/content.json --max-score 40   # CI 门禁
+```
+
+分数只是**定位工具**：高不等于 AI 写的（模板公文、翻译腔也会高），低也不等于合格
+（真问题常在论证与数据）。它列出规则编号、段落号和原句，改不改由人判断。
+
 

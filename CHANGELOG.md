@@ -5,6 +5,23 @@
 
 ## [Unreleased]
 
+### Added
+
+- `references/anti-ai-academic-zh.md`：学术中文的「AI 味」规则
+  - 借 blader/humanizer v3.1.0 的根因分类（用姿态/规则/权威/模板代替信息）与 S/A/B 强度分级
+  - 借 op7418/Humanizer-zh 的中文分组与"保事实优先"约束，补 `B2.13 装饰性标点`
+  - **学术豁免清单**：方法段被动句、术语化名词化、必要限定、引用格式、图表题注不乱洗
+  - 12 类典型句的 before/after、改写协议、交付前六问
+- `scripts/ai_tone_check.py`：启发式检测器（只报警，不改稿）
+  - 输入 `--docx` / `--json`（内容模型）/ `--text`
+  - 词典 + 正则 + 结构指标（句长变异、连接词密度、数字密度、段首复读标题）
+  - 输出规则编号、段落号、原句、改法；`--max-score` 作 CI 门禁，`--json-out` 机器可读
+- `scripts/apd.py tone` 子命令
+- `scripts/qa_check.py`：新增「文风」提示项（36 项），**只报 WARN 不判 FAIL**
+- `tests/test_ai_tone.py`：20 个用例（判定方向、数据/引语/被动/数值范围豁免、
+  规则与文档一一对应、CLI）
+- `SKILL.md`：第 4 条硬规矩 + §11「正文的 AI 味」
+
 ## [1.0.0] - 2026-10-24
 
 首个可用版本：把《学术论文 / 研究报告 Word 排版与生成规范》变成可执行的格式系统。

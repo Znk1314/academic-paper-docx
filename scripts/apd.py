@@ -68,6 +68,22 @@ def cmd_chart(args):
     return make_chart.main([args.spec, "-o", args.output])
 
 
+def cmd_tone(args):
+    import ai_tone_check
+    argv = []
+    if args.docx:
+        argv += ["--docx", args.docx]
+    elif args.json:
+        argv += ["--json", args.json]
+    else:
+        argv += ["--text", args.text]
+    if args.max_score is not None:
+        argv += ["--max-score", str(args.max_score)]
+    if args.json_out:
+        argv += ["--json-out"]
+    return ai_tone_check.main(argv)
+
+
 def cmd_post(args):
     docx = os.path.abspath(args.docx)
     if not os.path.exists(docx):
@@ -263,6 +279,16 @@ def build_parser():
     p.add_argument("spec")
     p.add_argument("-o", "--output", required=True)
     p.set_defaults(func=cmd_chart)
+
+    p = sub.add_parser("tone", help="检测正文的「AI 味」（只报警，不改稿）")
+    src = p.add_mutually_exclusive_group(required=True)
+    src.add_argument("--docx", help="已生成的 .docx")
+    src.add_argument("--json", help="内容模型 content.json")
+    src.add_argument("--text", help="纯文本 / Markdown")
+    p.add_argument("--max-score", type=int, default=None,
+                   help="超过该分数时退出码 1（CI 门禁用）")
+    p.add_argument("--json-out", action="store_true", help="机器可读输出")
+    p.set_defaults(func=cmd_tone)
 
     p = sub.add_parser("doctor", help="环境自检")
     p.set_defaults(func=cmd_doctor)
