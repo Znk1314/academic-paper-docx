@@ -23,7 +23,11 @@ import json
 import os
 import sys
 
-import matplotlib
+try:
+    import matplotlib
+except ImportError as exc:  # pragma: no cover - 依赖缺失时给明确提示
+    raise ImportError(
+        "缺少 matplotlib：python -m pip install -r requirements.txt") from exc
 
 matplotlib.use("Agg")  # 必须在 pyplot 之前；保证无显示环境可用
 

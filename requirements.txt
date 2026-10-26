@@ -1,4 +1,6 @@
 python-docx>=1.1.0
 lxml>=5.0
 Pillow>=9.0
-PyMuPDF>=1.23          # 仅 render_preview.py / PDF 体检需要
+matplotlib>=3.6          # 插图渲染（figures.py）
+numpy>=1.21              # matplotlib 依赖，figures.py 直接使用
+PyMuPDF>=1.23            # 仅 render_preview.py / PDF 体检需要
