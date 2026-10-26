@@ -22,7 +22,12 @@ import _console
 try:
     import pymupdf as fitz  # PyMuPDF
 except ImportError:  # pragma: no cover
-    import fitz
+    try:
+        import fitz
+    except ImportError:  # 依赖缺失时给一句话提示，而不是抛栈
+        print("缺少 PyMuPDF，无法做 PDF 预览与体检。")
+        print("安装：python -m pip install PyMuPDF（不影响生成 docx）")
+        raise SystemExit(2) from None
 
 BAD_TEXT = [
     "错误！未定义书签", "错误!未定义书签", "Error! Bookmark not defined",

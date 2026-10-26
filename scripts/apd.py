@@ -102,7 +102,12 @@ def cmd_palette(args):
 
 
 def cmd_figure(args):
-    import figures
+    try:
+        import figures
+    except ImportError as exc:
+        print(str(exc), file=sys.stderr)
+        print("提示：只排文字不需要出图，可直接用 apd build 生成 docx。", file=sys.stderr)
+        return 2
     argv = [args.spec, "-o", args.output]
     if args.grayscale:
         argv.append("--grayscale")
@@ -239,9 +244,9 @@ def cmd_doctor(args):
     probe("Python 版本", python_version, critical=True)
     probe("python-docx", python_docx, critical=True)
     probe("lxml", lxml, critical=True)
-    probe("matplotlib（出图）", matplotlib_, critical=True)
-    probe("numpy（出图）", numpy_, critical=True)
-    probe("Pillow（图片校验）", pillow, critical=True)
+    probe("matplotlib（出图，推荐）", matplotlib_)
+    probe("numpy（出图，推荐）", numpy_)
+    probe("Pillow（图片校验，推荐）", pillow)
     probe("中文字体（图表标签）", cjk_font)
     probe("PyMuPDF（PDF 预览/体检）", pymupdf)
     probe("PowerShell", powershell)
@@ -263,7 +268,12 @@ def cmd_doctor(args):
     optional = [name for state, name, _d, critical in checks
                 if state != "OK" and not critical]
     print("最小可用：生成 docx + 质检（python-docx / lxml 已就绪）")
-    print("出图可用：matplotlib + numpy 已就绪（无中文字体时英文/数字正常，中文显示方框）")
+    if not [s for s, n, _d, _c in checks if n.startswith("matplotlib") and s != "OK"]:
+        font_ok = not [s for s, n, _d, _c in checks if n.startswith("中文字体") and s != "OK"]
+        print("出图可用：matplotlib + numpy 已就绪%s" % ("" if font_ok else
+                                     "（但无中文字体，中文会显示方框）"))
+    else:
+        print("未装 matplotlib：跳过出图（apd figure）；docx 生成不受影响")
     if optional:
         print("可选能力缺失：%s" % "、".join(optional))
         print("  · 无 Word/LibreOffice：不影响生成 docx，只是不能自动更新目录与导出 PDF")

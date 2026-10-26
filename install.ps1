@@ -26,7 +26,8 @@ param(
     [string]$Target = "dsh",
     [string]$Path,
     [switch]$Link,
-    [switch]$Force
+    [switch]$Force,
+    [switch]$SkipDeps
 )
 
 $ErrorActionPreference = "Stop"
@@ -97,9 +98,23 @@ else {
 }
 
 Write-Host ""
-Write-Host "下一步："
-Write-Host "  1) 安装依赖： python -m pip install -r `"$dest\requirements.txt`""
-Write-Host "  2) 自检：     python `"$dest\scripts\apd.py`" doctor"
-Write-Host "  3) 生成示例： python `"$dest\scripts\apd.py`" demo -o build\demo"
+if (-not $SkipDeps) {
+    Write-Host "安装依赖（python-docx / lxml / matplotlib / numpy / Pillow）…"
+    $req = Join-Path $dest "requirements.txt"
+    try {
+        python -m pip install --quiet -r $req
+        Write-Host "依赖已安装。" -ForegroundColor Green
+    }
+    catch {
+        Write-Host "自动安装依赖失败，请手动执行：" -ForegroundColor Yellow
+        Write-Host "  python -m pip install -r `"$req`""
+    }
+}
+
 Write-Host ""
+Write-Host "下一步："
+Write-Host "  1) 自检：     python `"$dest\scripts\apd.py`" doctor"
+Write-Host "  2) 生成示例： python `"$dest\scripts\apd.py`" demo -o build\demo"
+Write-Host ""
+Write-Host "只排文字不画图？ matplotlib 可以不装，docx 仍能生成。"
 Write-Host "重启 agent（或新开会话）后技能即可被发现。"
