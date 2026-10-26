@@ -391,9 +391,18 @@ def check_headers_footers(doc):
 
 
 def _caption_kind(p):
+    """识别"图表题"：居中 + 9.5 pt 的 `图N/表N` 段落。
+
+    正文里也常出现"图6给出…"这类以图号开头的句子，只靠正则会把它们误判成题注
+    （进而误报字号/加粗，并把编号算重）。所以题注必须同时满足：居中、字号 ≤10 pt。
+    """
     text = p.text.strip()
     m = re.match(r"^(图|表)\s*(\d+)", text)
     if not m:
+        return None, None
+    pPr = p._p.find(qn("w:pPr"))
+    jc = a(pPr.find(qn("w:jc")) if pPr is not None else None, "val")
+    if jc != "center":
         return None, None
     size = None
     color = None
@@ -404,6 +413,8 @@ def _caption_kind(p):
         if r.font.color is not None and r.font.color.rgb is not None:
             color = str(r.font.color.rgb)
         bold = bold or bool(r.bold)
+    if size is None or size > 10.0:
+        return None, None
     return m.group(1), (int(m.group(2)), size, color, bold)
 
 

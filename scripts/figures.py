@@ -196,7 +196,7 @@ def render(spec: dict, out_path: str, grayscale: bool = False) -> str:
         ax.set_ylim(*spec["y_range"])
 
     _style_axes(ax, style, style_name)
-    if spec.get("grid", style["grid_alpha"] > 0):
+    if kind != "heatmap" and spec.get("grid", style["grid_alpha"] > 0):
         ax.grid(True, axis="y", linestyle=":", linewidth=0.5,
                 color=palette.FIGURE_NEUTRAL["grid"], alpha=style["grid_alpha"])
         ax.set_axisbelow(True)
@@ -211,7 +211,7 @@ def render(spec: dict, out_path: str, grayscale: bool = False) -> str:
     if show_legend is None:
         show_legend = kind in ("line", "scatter", "errorbar", "box") or len(series) > 1
     if show_legend:
-        _legend(ax, series, kind, style)
+        _legend(ax, series, kind, style, str(spec.get("legend_loc") or "upper right"))
 
     _annotate_significance(ax, spec, style, kind)
 
@@ -339,8 +339,8 @@ def _plot_heatmap(fig, ax, series, spec, style) -> None:
                       fontsize=style["font_size"])
 
 
-def _legend(ax, series, kind, style) -> None:
-    pos = "upper right"
+def _legend(ax, series, kind, style, loc="upper right") -> None:
+    pos = loc
     if kind in ("bar", "grouped_bar"):
         pos = "best"
     if kind == "box":

@@ -38,11 +38,21 @@
 
 全部由 [`examples/demo/content_model.json`](examples/demo/content_model.json) 自动生成，**未做人工排版**：
 
-| 封面 | 摘要 | 图与公式 | 三线表 |
-|---|---|---|---|
-| ![封面](docs/screenshots/01-cover.png) | ![摘要](docs/screenshots/02-abstract.png) | ![图与公式](docs/screenshots/05-figure-equation.png) | ![三线表](docs/screenshots/06-table.png) |
+| 封面 | 摘要 |
+|---|---|
+| ![封面](docs/screenshots/01-cover.png) | ![摘要](docs/screenshots/02-abstract.png) |
 
-完整 7 页见 [docs/demo/demo_report.pdf](docs/demo/demo_report.pdf)。
+| 三线表 + 多系列折线图（3 色 7 点 + 误差线 + 显著性） | 分组柱状图 |
+|---|---|
+| ![表格与折线图](docs/screenshots/03-table-figure.png) | ![分组柱状](docs/screenshots/04-figures-compare.png) |
+
+| 箱线图 · 散点图 · 热图（同一页三种图型） |
+|---|
+| ![混合图型](docs/screenshots/05-figures-mixed.png) |
+
+完整 10 页、6 张图见 [docs/demo/demo_report.pdf](docs/demo/demo_report.pdf)：
+折线（3 系列 × 7 点、SD 误差线、`*`/`**` 显著性）、分组柱状（3 系列 × 4 组）、
+散点（2 系列 × 12 点）、箱线（4 组）、热图（cividis 顺序色板）。
 
 ## 安装
 
