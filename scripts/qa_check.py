@@ -555,14 +555,45 @@ def check_equations(doc):
               nums == list(range(1, len(nums) + 1)), "编号：%s" % nums)
 
 
+def check_heading_levels(doc):
+    """GB/T 7713.2—2022 5.2.2：正文一般不宜超过 4 级；章节标题一般不宜超过 15 字。"""
+    levels, too_long, deep = {}, [], []
+    for para in doc.paragraphs:
+        style = (para.style.name or "") if para.style is not None else ""
+        if not style.startswith("Heading "):
+            continue
+        try:
+            lv = int(style.split()[-1])
+        except ValueError:
+            continue
+        text = para.text.strip()
+        levels[lv] = levels.get(lv, 0) + 1
+        if lv > 4:
+            deep.append(text[:14])
+        if len(text) > 15:
+            too_long.append("%d 级「%s」%d 字" % (lv, text[:12], len(text)))
+    if not levels:
+        return
+    check("版式", "标题层级 ≤4 级（5.2.2）", not deep, "；".join(deep[:3]))
+    warn_if("版式", "章节标题 ≤15 字（5.2.2）", bool(too_long), "；".join(too_long[:3]))
+    detail = "、".join("%d 级 %d 个" % (k, v) for k, v in sorted(levels.items()))
+    check("版式", "标题层级分布：%s" % detail, True)
+
+
 def check_toc(doc):
     instrs = [el.text or "" for el in doc.element.body.iter(qn("w:instrText"))]
     toc = [x for x in instrs if "TOC" in x]
     check("目录", "存在自动目录域（TOC）", bool(toc),
           ("域代码：%s" % toc[0].strip()) if toc else "未找到 TOC 域")
     if toc:
-        check("目录", "目录只显示一级标题（\\o \"1-1\"）",
-              '"1-1"' in toc[0] or "'1-1'" in toc[0], toc[0].strip())
+        import re as _re
+        m = _re.search(r'\\o\s+"?(\d+)-(\d+)"?', toc[0])
+        top, bottom = (int(m.group(1)), int(m.group(2))) if m else (1, 1)
+        detail = '当前 \\o "%d-%d"' % (top, bottom)
+        # 只列一级标题基本没有导航价值；GB/T 7713.1—2025 附录 E 的目次示例含"章 + 节"两级
+        # 只列一级基本没有导航价值；判 WARN，允许小型报告显式用 1-1
+        warn_if("目录", "目录含二级及以上条目（\\o \"1-N\"，N≥2）",
+                not (top == 1 and bottom >= 2), detail)
 
     toc_items = [p for p in doc.paragraphs
                  if p.style is not None and (p.style.name or "").lower().startswith("toc")]
@@ -1004,6 +1035,7 @@ def main(argv=None):
     check_figures(doc)
     check_equations(doc)
     check_toc(doc)
+    check_heading_levels(doc)
     check_references(doc)
     check_crossrefs(doc)
     check_runs_fonts(doc)

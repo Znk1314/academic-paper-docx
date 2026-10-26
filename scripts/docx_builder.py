@@ -55,7 +55,7 @@ SPEC = {
     "sizes": {
         "cover_kicker": 15, "cover_title": 24, "cover_subtitle": 20,
         "cover_note": 11, "cover_info": 12, "cover_bottom": 12,
-        "h1": 16, "h2": 13,
+        "h1": 16, "h2": 13, "h3": 12,
         "body": 12, "abstract_en": 11, "keywords": 10.5,
         "caption": 9.5, "table": 9, "note": 8.5,
         "header": 8.5, "footer": 8, "reference": 9,
@@ -563,6 +563,23 @@ def setup_styles(doc, spec):
     pf.alignment = WD_ALIGN_PARAGRAPH.LEFT
     _set_outline_level(h2.element.get_or_add_pPr(), 1)
 
+    # --- 三级标题（GB/T 7713.2—2022 5.2.2：正文一般不宜超过 4 级，三级是常用下限）
+    h3 = doc.styles["Heading 3"]
+    set_style_font(h3, fonts["head_cn"], fonts["head_en"],
+                   sizes["h3"], True, rgb(colors["ink"]))
+    pf = h3.paragraph_format
+    pf.space_before = Pt(8)
+    pf.space_after = Pt(3)
+    pf.line_spacing = 1.25
+    pf.first_line_indent = Pt(0)
+    set_first_line_chars(pf, 0)
+    pf.left_indent = Cm(0)
+    pf.keep_with_next = True
+    pf.keep_together = True
+    pf.page_break_before = False
+    pf.alignment = WD_ALIGN_PARAGRAPH.LEFT
+    _set_outline_level(h3.element.get_or_add_pPr(), 2)
+
     # --- 前置部分标题（摘要 / Abstract）：外观同一级标题，但不进目录
     _ensure_front_heading_style(doc, spec)
 
@@ -897,6 +914,15 @@ class PaperBuilder:
                     first_line_chars=0)
         self._run(p, text, self._f("head_cn"), self._f("head_en"),
                   self._s("h2"), True, self._c("blue"))
+        return p
+
+    def add_heading3(self, text):
+        """三级标题：1.1.1 形态，与正文同字号加粗，进目录（取决于 toc_levels）。"""
+        p = self.doc.add_paragraph(style="Heading 3")
+        para_format(p, align=WD_ALIGN_PARAGRAPH.LEFT, first_line_indent=0,
+                    first_line_chars=0)
+        self._run(p, text, self._f("head_cn"), self._f("head_en"),
+                  self._s("h3"), True, self._c("ink"))
         return p
 
     # ---------- 正文
@@ -1316,12 +1342,16 @@ class PaperBuilder:
             typ = "h1"
         elif typ in ("h2", "heading2") or level == 2:
             typ = "h2"
+        elif typ in ("h3", "heading3") or level == 3:
+            typ = "h3"
 
         if typ == "h1":
             self.add_heading1(item["text"], page_break=item.get("page_break", False),
                               front=item.get("front", False))
         elif typ == "h2":
             self.add_heading2(item["text"])
+        elif typ == "h3":
+            self.add_heading3(item["text"])
         elif typ == "p" or typ == "paragraph":
             texts = item["text"]
             if isinstance(texts, str):
@@ -1393,7 +1423,7 @@ class PaperBuilder:
                                      page_break=True)
             else:
                 self.add_toc(model.get("toc_title", "目　录"),
-                             model.get("toc_levels", "1-1"))
+                             model.get("toc_levels", "1-2"))
 
         first_h1 = True
         for item in model.get("sections", []):

@@ -9,6 +9,7 @@ import pytest
 from conftest import DEMO_FIGURE, demo_model, localname, m, w
 from docx import Document
 from docx.enum.text import WD_ALIGN_PARAGRAPH
+from docx.oxml.ns import qn
 from docx.shared import Pt
 
 # --------------------------------------------------------------- 页面 / 视图
@@ -290,7 +291,7 @@ def test_toc_field(built_doc):
     instrs = [el.text or "" for el in body.iter(w("instrText"))]
     toc = [x for x in instrs if "TOC" in x]
     assert toc, "没有 TOC 域"
-    assert '"1-1"' in toc[0]
+    assert '"1-2"' in toc[0]
 
 
 def test_spec_override_changes_palette(tmp_path):
@@ -450,3 +451,40 @@ def test_english_abstract_starts_on_new_page(basic_model, tmp_path):
     abs_para = next(p for p in doc.paragraphs if p.text.strip().startswith("Abstract"))
     pPr = abs_para._p.find(w("pPr"))
     assert pPr is not None and pPr.find(w("pageBreakBefore")) is not None
+
+
+# ---------------------------------------------------------------- 三级标题 / 目录层级
+
+def test_heading_level_3_supported(basic_model, tmp_path):
+    """三级标题：Heading 3 样式、12 pt 加粗、大纲级别 2。"""
+    model = dict(basic_model)
+    model["sections"] = [
+        {"level": 1, "text": "1 引言"},
+        {"level": 2, "text": "1.1 小节"},
+        {"level": 3, "text": "1.1.1 更小的节"},
+        {"type": "p", "text": "正文。"},
+    ]
+    _, path = db.build_from_model(model, str(tmp_path / "h3.docx"))
+    doc = Document(path)
+    h3 = next(p for p in doc.paragraphs if p.text.strip() == "1.1.1 更小的节")
+    assert h3.style.name == "Heading 3"
+    assert h3.runs[0].font.size == Pt(12)
+    pPr = h3.style.element.find(w("pPr"))
+    assert pPr is not None and pPr.find(w("outlineLvl")) is not None
+
+
+def test_toc_default_lists_two_levels(basic_model, tmp_path):
+    """目录默认列到二级（TOC \\o "1-2"）：只列一级几乎无法导航。"""
+    _, path = db.build_from_model(basic_model, str(tmp_path / "toc2.docx"))
+    doc = Document(path)
+    instr = [t.text for t in doc.element.body.iter(qn("w:instrText")) if "TOC" in t.text]
+    assert instr and '"1-2"' in instr[0], instr
+
+
+def test_toc_levels_configurable_to_three(basic_model, tmp_path):
+    model = dict(basic_model)
+    model["toc_levels"] = "1-3"
+    _, path = db.build_from_model(model, str(tmp_path / "toc3.docx"))
+    doc = Document(path)
+    instr = [t.text for t in doc.element.body.iter(qn("w:instrText")) if "TOC" in t.text]
+    assert instr and '"1-3"' in instr[0], instr

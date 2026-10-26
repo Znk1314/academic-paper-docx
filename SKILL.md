@@ -73,7 +73,7 @@ python -m pip install -r <SKILL_DIR>/requirements.txt
   },
   "abstract":   { "heading": "摘　要", "paragraphs": ["…"], "keywords": ["…", "…"] },
   "abstract_en":{ "heading": "Abstract", "paragraphs": ["…"], "keywords": ["…"] },
-  "toc": true, "toc_title": "目　录", "toc_levels": "1-1",
+  "toc": true, "toc_title": "目　录", "toc_levels": "1-2",   // 目录层级，可改 1-3
   "sections": [ /* 见下表 */ ],
   "references": ["[1] …", "…"]            // 不写 [n] 时自动补号
 }
@@ -85,6 +85,7 @@ python -m pip install -r <SKILL_DIR>/requirements.txt
 |---|---|---|
 | 一级标题 | `{"level":1,"text":"1 引言"}` | 编号写进 text，全文统一（`1` 或 `一、`）；首个一级标题自动另起一页 |
 | 二级标题 | `{"level":2,"text":"1.1 研究背景"}` | 不自动加编号 |
+| 三级标题 | `{"level":3,"text":"1.1.1 更小的节"}` | 12 pt 加粗；是否进目录取决于 `toc_levels`（默认 `1-2`，即三级不进目录；要进目录改 `1-3`） |
 | 正文段 | `{"type":"p","text":"…"}` | 12 pt / 1.5 倍 / 首行 2 字符 / 两端对齐 |
 | 编号列表 | `{"type":"list","items":["…","…"]}` | 生成（1）（2）（3），不用圆点 |
 | 三线表 | `{"type":"table","caption":"…","headers":[…],"rows":[[…]],"widths":[3,3.8,8.7],"aligns":["center","left","left"],"note":"注：…"}` | 宽度自动归一到 15.5 cm；编号自动 |
@@ -208,7 +209,7 @@ b.doc.save("report.docx")
 
 | 现象 | 原因 / 修复 |
 |---|---|
-| 目录显示成 `TOC \o "1-1" ...` 原始域 | 域结构被破坏；删掉整个目录区域重插，或直接重跑 `postprocess.ps1` |
+| 目录显示成 `TOC \o "1-2" ...` 原始域 | 域结构被破坏；删掉整个目录区域重插，或直接重跑 `postprocess.ps1` |
 | 目录后多一张空白页 | 分页符段落 + 标题 `page_break_before` 同时生效；只留一种 |
 | 表格跨页只剩表头 | 表头 `w:tblHeader` 缺失 / 行未 `w:cantSplit`；用 `add_table` 会自动处理 |
 | 图片变形 | 只设宽度即可（脚本已等比）；不要手动拉伸 |

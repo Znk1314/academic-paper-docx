@@ -290,9 +290,10 @@ Keywords: keyword1; keyword2; keyword3; keyword4; keyword5
 ### 8.1 目录形式
 
 - 使用 Word 自动目录域；
-- 建议只显示一级标题，保证目录一页：
-  `TOC \o "1-1" \h \z \u`
-- 如果一级标题超过 15 个，可显示二级，但需要把目录样式字体缩小到 10 pt 左右，并减少段间距。
+- 默认显示到二级标题：`TOC \o "1-2" \h \z \u`
+  —— 只列一级标题（`1-1`）几乎无法导航；GB/T 7713.1—2025 附录 E 的目次示例也是"章 + 节"两级。
+- 三级标题较多、需要更细的导航时可改 `1-3`；此时把目录条目字号降到 10 pt、压缩段间距，控制在两页内。
+- 小型课程报告若确实要求目录一页，可显式写 `toc_levels: "1-1"`（qa 会给 WARN 提示）。
 
 ### 8.2 目录标题
 
@@ -308,7 +309,7 @@ def add_toc_field(paragraph):
     begin.set(qn("w:fldCharType"), "begin")
     instr = OxmlElement("w:instrText")
     instr.set(qn("xml:space"), "preserve")
-    instr.text = 'TOC \\o "1-1" \\h \\z \\u'
+    instr.text = 'TOC \\o "1-2" \\h \\z \\u'
     sep = OxmlElement("w:fldChar")
     sep.set(qn("w:fldCharType"), "separate")
     text = OxmlElement("w:t")
@@ -824,7 +825,7 @@ def build_report():
     # 2. 前置部分
     add_cover(doc)
     add_abstract(doc)               # 中文摘要 + 关键词 + 英文摘要
-    add_toc(doc)                    # TOC 域，只显示一级标题
+    add_toc(doc)                    # TOC 域，默认列到二级标题
 
     # 3. 正文（以下标题只是示例，必须替换）
     add_h1(doc, "1 引言")
@@ -997,7 +998,7 @@ settings.append(zoom)
 现象：
 
 ```text
-TOC \o "1-1" \h \z \u [标题] ...
+TOC \o "1-2" \h \z \u [标题] ...
 ```
 
 原因：
@@ -1304,7 +1305,7 @@ Word 文档必须满足：
 | 图片 | 16:9，普通 14.0 cm，密集 15.0—15.5 cm，保持比例 |
 | 公式 | OMML，居中，编号右对齐 `（1）` |
 | 列表 | 不用圆点，统一 `（1）（2）（3）` |
-| 目录 | `TOC \o "1-1" \h \z \u`，只显示一级标题 |
+| 目录 | `TOC \o "1-2" \h \z \u`，默认列到二级标题（可配 `1-3`） |
 | 页面视图 | `<w:view w:val="print"/>`，缩放 100% |
 | 配色 | 深蓝 `#1F3A5F`、蓝 `#0072B2`、橙 `#E69F00`、绿 `#009E73` |
 | 浅底/边框 | `#EAF2FA` / `#B4C6E7` |
