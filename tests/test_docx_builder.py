@@ -488,3 +488,36 @@ def test_toc_levels_configurable_to_three(basic_model, tmp_path):
     doc = Document(path)
     instr = [t.text for t in doc.element.body.iter(qn("w:instrText")) if "TOC" in t.text]
     assert instr and '"1-3"' in instr[0], instr
+
+
+# ---------------------------------------------------------------- 目录缩进 / 提示段
+
+def test_toc_styles_use_character_indent(built):
+    """目录二级缩进 1 个字、三级 2 个字（GB/T 7713.1—2025 附录 E）。"""
+    from docx.oxml.ns import qn as _qn
+    styles = built[0].doc.styles.element
+    got = {}
+    for st in styles.findall(_qn("w:style")):
+        sid = st.get(_qn("w:styleId"))
+        if sid in ("TOC1", "TOC2", "TOC3"):
+            ind = st.find(_qn("w:pPr")).find(_qn("w:ind"))
+            got[sid] = ind.get(_qn("w:leftChars"))
+    assert got == {"TOC1": "0", "TOC2": "100", "TOC3": "200"}, got
+
+
+def test_callout_has_no_shading_by_default(built):
+    """提示段默认不加底色/边框（论文正文不惯用彩色框）。"""
+    from docx.oxml.ns import qn as _qn
+    b = built[0]
+    p = b.add_callout("本文数字均为模拟结果。", "说明")
+    pPr = p._p.find(_qn("w:pPr"))
+    assert pPr is None or pPr.find(_qn("w:shd")) is None
+
+
+def test_callout_box_option_adds_shading(built):
+    from docx.oxml.ns import qn as _qn
+    b = built[0]
+    p = b.add_callout("需要醒目时显式开启。", "说明", box=True)
+    pPr = p._p.find(_qn("w:pPr"))
+    shd = pPr.find(_qn("w:shd"))
+    assert shd is not None and shd.get(_qn("w:fill")) not in (None, "auto", "FFFFFF")

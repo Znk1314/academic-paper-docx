@@ -633,25 +633,46 @@ def _ensure_front_heading_style(doc, spec):
 
 
 def _ensure_toc_style(doc, spec):
-    """注入 Word 内置 TOC1 样式（styleId=TOC1），保证更新目录后字体受控。"""
+    """注入 TOC1/TOC2/TOC3 样式，控制目录缩进与字体。
+
+    GB/T 7713.1—2025 附录 E 的目次示例：一级顶格，二级缩进 1 个字，页码右对齐、
+    点线引导。Word 内置 TOC2 的默认缩进（约 2 字符）偏大，所以这里用"字符"为单位
+    显式指定，字号变化时缩进跟着变。
+    """
     styles_el = doc.styles.element
-    for st in styles_el.findall(qn("w:style")):
-        if st.get(qn("w:styleId")) == "TOC1":
+    for st in list(styles_el.findall(qn("w:style"))):
+        if st.get(qn("w:styleId")) in ("TOC1", "TOC2", "TOC3"):
             styles_el.remove(st)
-    sz = int(spec["sizes"]["toc_item"] * 2)  # 半磅
-    xml = (
-        '<w:style xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"'
-        ' w:type="paragraph" w:styleId="TOC1">'
-        '<w:name w:val="toc 1"/><w:basedOn w:val="Normal"/><w:next w:val="Normal"/>'
-        '<w:uiPriority w:val="39"/><w:unhideWhenUsed/>'
-        '<w:pPr><w:spacing w:before="0" w:after="60" w:line="300" w:lineRule="auto"/>'
-        '<w:ind w:left="0" w:firstLine="0"/><w:jc w:val="left"/></w:pPr>'
-        '<w:rPr><w:rFonts w:ascii="Times New Roman" w:hAnsi="Times New Roman"'
-        ' w:eastAsia="宋体"/><w:color w:val="%s"/><w:sz w:val="%d"/></w:rPr>'
-        '</w:style>' % (spec["colors"]["ink"], sz)
-    )
+
+    page = spec["page"]
+    text_twips = int(round((page["width_cm"] - page["left_cm"] - page["right_cm"])
+                           / 2.54 * 1440))
+    sz = int(spec["sizes"]["toc_item"] * 2)      # 半磅
+    ink = spec["colors"]["ink"]
+
     from lxml import etree
-    styles_el.append(etree.fromstring(xml))
+
+    def make(style_id, name, level_chars, size_half, bold=False):
+        xml = (
+            '<w:style xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"'
+            ' w:type="paragraph" w:styleId="%s">'
+            '<w:name w:val="%s"/><w:basedOn w:val="Normal"/><w:next w:val="Normal"/>'
+            '<w:uiPriority w:val="39"/><w:unhideWhenUsed/>'
+            '<w:pPr><w:tabs><w:tab w:val="right" w:leader="dot" w:pos="%d"/></w:tabs>'
+            '<w:spacing w:before="0" w:after="40" w:line="300" w:lineRule="auto"/>'
+            '<w:ind w:left="0" w:leftChars="%d" w:firstLine="0" w:firstLineChars="0"/>'
+            '<w:jc w:val="left"/></w:pPr>'
+            '<w:rPr><w:rFonts w:ascii="Times New Roman" w:hAnsi="Times New Roman"'
+            ' w:eastAsia="宋体"/><w:color w:val="%s"/>%s'
+            '<w:sz w:val="%d"/><w:szCs w:val="%d"/></w:rPr>'
+            '</w:style>'
+        ) % (style_id, name, text_twips, level_chars, ink,
+             "<w:b/>" if bold else "", size_half, size_half)
+        styles_el.append(etree.fromstring(xml))
+
+    make("TOC1", "toc 1", 0, sz, bold=True)
+    make("TOC2", "toc 2", 100, sz)      # 1 个字
+    make("TOC3", "toc 3", 200, sz)      # 2 个字
 
 
 SETTINGS_ORDER = [
@@ -967,15 +988,24 @@ class PaperBuilder:
                       size=size if size is not None else self._s("body"),
                       color=self._c("ink"))
 
-    def add_callout(self, text, title=None):
+    def add_callout(self, text, title=None, box=False):
+        """提示段。默认**不加底色/边框**，只用加粗引导词（论文正文不惯用彩色框）。
+
+        需要醒目的方框样式时显式传 box=True（例如课题组内部分享稿）。
+        """
         p = self.doc.add_paragraph()
-        para_format(p, align=WD_ALIGN_PARAGRAPH.JUSTIFY, line_spacing=1.4,
-                    space_before=6, space_after=8,
+        para_format(p, align=WD_ALIGN_PARAGRAPH.JUSTIFY, line_spacing=1.5,
+                    space_before=6, space_after=6,
                     first_line_indent=Pt(0), first_line_chars=0)
-        shade_paragraph(p, fill=self._c("pale"), border_color=self._c("pale_line"))
+        if box:
+            shade_paragraph(p, fill=self._c("pale"),
+                            border_color=self._c("pale_line"))
         if title:
-            self._run(p, title + "  ", size=11, bold=True, color=self._c("navy"))
-        self._run(p, text, size=11, color=self._c("ink"))
+            self._run(p, title + ("：" if not title.endswith("：") else ""),
+                      self._f("head_cn"), self._f("head_en"),
+                      self._s("body"), True, self._c("ink"))
+        self._run(p, text, self._f("body_cn"), self._f("body_en"),
+                  self._s("body"), False, self._c("ink"))
         return p
 
     # ---------- 图表编号
@@ -1380,7 +1410,8 @@ class PaperBuilder:
                               number=item.get("number"),
                               show_number=item.get("numbered", True))
         elif typ == "callout":
-            self.add_callout(item.get("text", ""), item.get("title"))
+            self.add_callout(item.get("text", ""), item.get("title"),
+                             box=bool(item.get("box", False)))
         elif typ == "pagebreak":
             self.page_break()
         else:

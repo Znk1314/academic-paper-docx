@@ -364,7 +364,7 @@ python scripts/apd.py figure work/fig1.json -o work/figs/fig1.png --grayscale
       "rows": [["1", "2"]], "widths": [7, 8.5], "note": "注：示例数据。" },
     { "type": "figure", "path": "figs/fig1.png", "caption": "示例图", "width_cm": 14 },
     { "type": "equation", "latex": "\\hat{x} = \\frac{1}{N}\\sum_{i=1}^{N} x_i" },
-    { "type": "callout", "title": "说明", "text": "…" }
+    { "type": "callout", "title": "说明", "text": "…" }   // 默认无框，box:true 才有底色
   ],
   "references": ["作者. 题名[J]. 刊名, 2020, 1(2): 3-4."]
 }

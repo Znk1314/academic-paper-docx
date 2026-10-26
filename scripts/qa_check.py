@@ -936,6 +936,23 @@ def check_front_matter_order(doc):
             wrong, msg + "（与国标相反；若学校模板确有此要求可忽略）" if wrong else "")
 
 
+def check_para_shading(doc):
+    """论文正文不惯用彩色底框；出现段底纹时提示（模板默认已不加框）。"""
+    shaded = []
+    for para in _all_paragraphs(doc):
+        pPr = para._p.find(qn("w:pPr"))
+        if pPr is None:
+            continue
+        shd = pPr.find(qn("w:shd"))
+        if shd is None:
+            continue
+        fill = a(shd, "fill")
+        if fill and fill not in ("auto", "FFFFFF"):
+            shaded.append((para.text or "").strip()[:16] or "（空段）")
+    warn_if("版式", "正文段落无彩色底纹（论文不惯用提示框）", bool(shaded),
+            "；".join(shaded[:3]))
+
+
 def check_ai_tone(path):
     """AI 味只做提示：分数是启发式的，不判断作者身份，也绝不判 FAIL。"""
     try:
@@ -1047,6 +1064,7 @@ def main(argv=None):
     check_note_period(doc)
     check_caption_before_content(doc)
     check_front_matter_order(doc)
+    check_para_shading(doc)
     check_table_precision(doc)
     check_palette(doc)
     check_figure_quality(doc)

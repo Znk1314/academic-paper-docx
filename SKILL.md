@@ -91,7 +91,8 @@ python -m pip install -r <SKILL_DIR>/requirements.txt
 | 三线表 | `{"type":"table","caption":"…","headers":[…],"rows":[[…]],"widths":[3,3.8,8.7],"aligns":["center","left","left"],"note":"注：…"}` | 宽度自动归一到 15.5 cm；编号自动 |
 | 图 | `{"type":"figure","path":"figs/x.png","caption":"…","note":"注：…","width_cm":14}` | 只给宽度 → 等比缩放；图题在下 |
 | 公式 | `{"type":"equation","latex":"\\hat{x}_k = \\frac{1}{N}\\sum_{i=0}^{N-1} z_{k-i}","number":"（1）"}` | 转成 Word 原生 OMML；编号右对齐 |
-| 提示框 | `{"type":"callout","title":"说明","text":"…"}` | 浅蓝底 + 淡蓝边框 |
+| 提示段 | `{"type":"callout","title":"说明","text":"…"}` | **默认无底色无边框**，只用加粗引导词
+（论文正文不惯用彩色框）；确需方框时加 `"box": true` |
 | 分页 | `{"type":"pagebreak"}` | 少用，优先靠标题分页 |
 
 **表题/图题只写标题文字即可**（写 `表1 xxx` 也行，会被自动重排为正确连续编号）。
