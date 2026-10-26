@@ -91,6 +91,7 @@ python -m pip install -r <SKILL_DIR>/requirements.txt
 | 三线表 | `{"type":"table","caption":"…","headers":[…],"rows":[[…]],"widths":[3,3.8,8.7],"aligns":["center","left","left"],"note":"注：…"}` | 宽度自动归一到 15.5 cm；编号自动 |
 | 图 | `{"type":"figure","path":"figs/x.png","caption":"…","note":"注：…","width_cm":14}` | 只给宽度 → 等比缩放；图题在下 |
 | 公式 | `{"type":"equation","latex":"\\hat{x}_k = \\frac{1}{N}\\sum_{i=0}^{N-1} z_{k-i}","number":"（1）"}` | 转成 Word 原生 OMML；编号右对齐 |
+| 正文引文 | 段落里写 `[[1]]`、`[[2,3]]`、`[[4-6]]` | 渲染为**上标方括号**（GB/T 7714—2015 顺序编码制） |
 | 提示段 | `{"type":"callout","title":"说明","text":"…"}` | **默认无底色无边框**，只用加粗引导词
 （论文正文不惯用彩色框）；确需方框时加 `"box": true` |
 | 分页 | `{"type":"pagebreak"}` | 少用，优先靠标题分页 |
@@ -372,7 +373,11 @@ python <SKILL_DIR>/scripts/figures.py spec.json -o f.png --palette rose6
 
 ## 12. 正文的「AI 味」：怎么认、怎么改、哪里不能改
 
-完整规则在 `references/anti-ai-academic-zh.md`（含 before/after 与学术豁免清单）。
+完整规则在 `references/anti-ai-academic-zh.md`（含 before/after、学术豁免清单、§8 反大白话）。
+
+`ai_tone_check.py` 给**两个分数**：`score`（AI 味）与 `register_score`（语体，越大白越大）。
+两者**都要 ≤20**：只压 AI 味会把论文写成大白话，只求文采又会浮夸。
+语体分 20—40 略松、40—60 偏口语、≥60 大白话，对照表见该文档 §8.1。
 这里只留执行要点。
 
 **写作时（不是写完再洗）就避开这 6 类**：

@@ -521,3 +521,20 @@ def test_callout_box_option_adds_shading(built):
     pPr = p._p.find(_qn("w:pPr"))
     shd = pPr.find(_qn("w:shd"))
     assert shd is not None and shd.get(_qn("w:fill")) not in (None, "auto", "FFFFFF")
+
+
+# ---------------------------------------------------------------- 引文标注
+
+def test_citation_renders_as_superscript(basic_model, tmp_path):
+    """GB/T 7714—2015 顺序编码制：正文标注为上标方括号。"""
+    model = dict(basic_model)
+    model["sections"] = [
+        {"level": 1, "text": "1 引言"},
+        {"type": "p", "text": "已有工作给出相近结论[[2,3]]，综述见[[4-6]]。"},
+    ]
+    _, path = db.build_from_model(model, str(tmp_path / "cite.docx"))
+    doc = Document(path)
+    para = next(p for p in doc.paragraphs if "[2,3]" in p.text)
+    sups = [r.text for r in para.runs if r.font.superscript]
+    assert "[2,3]" in sups and "[4-6]" in sups, sups
+    assert "[[2,3]]" not in para.text

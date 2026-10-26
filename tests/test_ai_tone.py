@@ -169,3 +169,40 @@ def test_cli_missing_paragraphs_exit_2(tmp_path):
 def test_mutually_exclusive_source_requires_one(kind):
     with pytest.raises(SystemExit):
         tone.main([])
+
+
+# ---------------------------------------------------------------- 语体（大白话）
+
+COLLOQUIAL = ("我们觉得这个方法挺不错，搞了半天，效果嘛，挺明显的。然后呢，"
+              "我们就弄了一个新的流程，差不多能省一半电。说白了就是把数据先处理一下，"
+              "所以说效果特别好！你看这个思路是不是很棒？")
+
+ACADEMIC = ("在节点数为 12、采样周期为 60 s 的条件下，平均功耗由 15.9 mW 降至 10.4 mW，"
+            "降幅 34.6%，温度估计的均方根误差为 0.24 ℃。结果表明，通信占空比是该场景下"
+            "功耗的主要来源；当采样周期超过 120 s 时误差上升加快。")
+
+
+def _analyze(text):
+    import ai_tone_check as t
+    return t.analyze([(text, False)], "inline")
+
+
+def test_colloquial_text_scores_high_register():
+    report = _analyze(COLLOQUIAL)
+    assert report.register_score >= 40, report.register_score
+    assert report.score <= 20, report.score     # 没有 AI 套话
+
+
+def test_academic_text_scores_low_register():
+    report = _analyze(ACADEMIC)
+    assert report.register_score <= 20, report.register_score
+
+
+def test_register_rules_are_reported_separately():
+    import ai_tone_check as t
+    report = _analyze(COLLOQUIAL)
+    ids = {h.rule_id for h in report.hits}
+    assert ids & {"R1", "R2", "R3", "R5"}, ids
+    assert not ids & {"S2.1", "A2.5"}          # 不把 AI 味规则算进语体
+    assert "学术语体" in t.grade_register(0)
+    assert "大白话" in t.grade_register(80)

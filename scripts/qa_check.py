@@ -953,6 +953,51 @@ def check_para_shading(doc):
             "；".join(shaded[:3]))
 
 
+_CITE_RE = re.compile(r"[\[［]\s*(\d+(?:\s*[,，\-–]\s*\d+)*)\s*[\]］]")
+_REF_ENTRY = re.compile(r"^\s*[\[［]\s*\d+\s*[\]］]")
+_REF_TYPE = re.compile(r"\[(?:J|M|C|D|S|P|R|N|G|Z|A|EB/OL|DB/OL|DB/CD|CP/DK|M/OL|J/OL)\]")
+
+
+def check_citations(doc):
+    """GB/T 7714—2015 顺序编码制：正文标注用上标方括号数字，编号与文后条目对应。"""
+    refs = [p for p in _all_paragraphs(doc) if _REF_ENTRY.match(p.text or "")]
+    ref_nums = {}
+    for para in refs:
+        m = re.match(r"^\s*[\[［]\s*(\d+)\s*[\]］]", para.text)
+        if m:
+            ref_nums[int(m.group(1))] = para.text
+    n_refs = len(refs)
+
+    cited: set[int] = set()
+    not_superscript, out_of_range = [], []
+    for para in _all_paragraphs(doc):
+        if _REF_ENTRY.match(para.text or ""):
+            continue                     # 参考文献条目本身
+        sups = [r.text.strip() for r in para.runs if r.font.superscript]
+        for m in _CITE_RE.finditer(para.text or ""):
+            token = m.group(0)
+            nums = [int(x) for x in re.findall(r"\d+", m.group(1))]
+            in_sup = any(token.strip(" ") in s or m.group(1) in s for s in sups)
+            if in_sup:
+                cited.update(nums)
+                if n_refs and max(nums) > n_refs:
+                    out_of_range.append("%s（共 %d 条）" % (token, n_refs))
+            else:
+                not_superscript.append(token)
+
+    check("参考文献", "正文引文标注为上标方括号（GB/T 7714—2015 顺序编码制）",
+          not not_superscript, "未上标：%s" % "、".join(dict.fromkeys(not_superscript))[:40])
+    check("参考文献", "引文编号不超出文后条目数", not out_of_range,
+          "；".join(out_of_range[:3]))
+    if ref_nums:
+        missing = sorted(set(ref_nums) - cited)
+        warn_if("参考文献", "每条文献都在正文被引用（顺序编码制应按引用顺序编号）",
+                bool(missing), "未引用：%s" % "、".join(str(n) for n in missing[:6]))
+        no_type = [str(n) for n, text in ref_nums.items() if not _REF_TYPE.search(text)]
+        warn_if("参考文献", "条目含文献类型标识（[J]/[M]/[C]/[EB/OL] 等）",
+                bool(no_type), "缺标识：%s" % "、".join(no_type[:6]))
+
+
 def check_ai_tone(path):
     """AI 味只做提示：分数是启发式的，不判断作者身份，也绝不判 FAIL。"""
     try:
@@ -974,8 +1019,10 @@ def check_ai_tone(path):
             top.append(hit.rule_id)
         if len(top) >= 3:
             break
-    detail = "得分 %d/100（%s）%s；详见 references/anti-ai-academic-zh.md" % (
+    reg = report.register_score
+    detail = "AI 味 %d/100（%s）｜ 语体 %d/100（%s）%s；详见 references/anti-ai-academic-zh.md" % (
         score, ai_tone_check.grade(score),
+        reg, ai_tone_check.grade_register(reg),
         "，主要命中：%s" % "/".join(top) if top else "")
     check("文风", "AI 味检测（提示项，不判失败）", score < 40, detail, warn=True)
 
@@ -1065,6 +1112,7 @@ def main(argv=None):
     check_caption_before_content(doc)
     check_front_matter_order(doc)
     check_para_shading(doc)
+    check_citations(doc)
     check_table_precision(doc)
     check_palette(doc)
     check_figure_quality(doc)

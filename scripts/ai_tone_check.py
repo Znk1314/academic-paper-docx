@@ -189,13 +189,14 @@ class Report:
     hits: list = field(default_factory=list)
     metrics: dict = field(default_factory=dict)
 
-    @property
-    def score(self) -> int:
+    def _weighted(self, levels: set[str]) -> int:
         if not self.chars:
             return 0
         weight = 0.0
         counted: dict[str, int] = {}
         for hit in self.hits:
+            if hit.level not in levels:
+                continue
             rule = RULE_BY_ID[hit.rule_id]
             n = counted.get(hit.rule_id, 0)
             counted[hit.rule_id] = n + 1
@@ -205,8 +206,63 @@ class Report:
         denominator = max(self.chars, 500) / 1000.0
         return int(min(100, round(weight / denominator * 4)))
 
+    @property
+    def score(self) -> int:
+        """AI 味分（S/A/B 级规则）。"""
+        return self._weighted({"S", "A", "B"})
 
-RULE_BY_ID = {r.id: r for r in RULES}
+    @property
+    def register_score(self) -> int:
+        """语体分（R 级规则）：越高越大白话。"""
+        return self._weighted({"R"})
+
+
+# ---------------------------------------------------------------- 语体（大白话）
+
+# 「去 AI 味」的反面不是「大白话」。论文要的是学术语体：客观、有依据、有限定。
+# 这组规则单独计分（level="R"），与 AI 味分数并列报告，两者都低才算合格。
+REGISTER_RULES: list[Rule] = [
+    Rule(
+        "R1", "R", "口语动词/程度词",
+        r"搞(?!活)|弄(?!虚)|整(?!理|体|合)|挺|超级|贼|巨(?!大|型)|不错|好用",
+        "换成书面语：搞→开展/实施；弄→处理/构造；挺/超级→较为/显著（有数据才用）",
+        3,
+    ),
+    Rule(
+        "R2", "R", "语气词与口语衔接",
+        r"(?:呢|吧|啊|嘛|啦|哈)(?=[，。；！？]|$)|然后呢|就是说|你看|你想想|说白了|反正",
+        "删掉语气词与口语衔接词；用“因此/据此/另一方面/相比之下”承接",
+        3,
+    ),
+    Rule(
+        "R3", "R", "主观随意的表述",
+        r"我觉得|我们觉得|我认为|我看|咱|咱们|笔者觉得|个人感觉",
+        "改为客观陈述：本文认为／结果表明／数据支持……；避免第一人称口语",
+        4,
+    ),
+    Rule(
+        "R4", "R", "模糊不严谨",
+        r"好像是|似乎吧|大概是|估计是|貌似|应该差不多|可能是吧|差不多是",
+        "改为可核查表述：估计值 ± 不确定度，或注明“在……假设下”",
+        3,
+    ),
+    Rule(
+        "R5", "R", "口语化顺承",
+        r"所以说|这不就|于是乎|接下来我们|下面我们就|我们可以看到",
+        "改为“因此/由此可见/下文依次分析”；避免把论文写成讲课口吻",
+        2,
+    ),
+    Rule(
+        "R6", "R", "情绪化与感叹",
+        r"太好了|太难了|棒极了|非常非常|极其极其|！{1,}",
+        "客观陈述即可；感叹号在学术正文中基本不用",
+        4,
+    ),
+]
+
+ALL_RULES = RULES + REGISTER_RULES
+
+RULE_BY_ID = {r.id: r for r in ALL_RULES}
 
 
 # ---------------------------------------------------------------- 文本处理
@@ -321,7 +377,7 @@ def analyze(paragraphs: list[tuple[str, bool]], source: str) -> Report:
                     "删掉复述标题的那句，直接给条件、定义或数据"))
         heading_buffer = None
 
-        for rule in RULES:
+        for rule in ALL_RULES:
             if rule.structural:
                 continue      # 结构级规则由段落/全篇逻辑判定，不做逐句匹配
             for s_idx, sentence in enumerate(sentences):
@@ -396,6 +452,16 @@ def _excerpt(text: str, limit: int = 46) -> str:
 LEVEL_LABEL = [(60, "重"), (40, "明显"), (20, "轻微"), (0, "清爽")]
 
 
+REGISTER_LABEL = [(60, "大白话"), (40, "偏口语"), (20, "略松"), (0, "学术语体")]
+
+
+def grade_register(score: int) -> str:
+    for threshold, label in REGISTER_LABEL:
+        if score >= threshold:
+            return label
+    return "学术语体"
+
+
 def grade(score: int) -> str:
     for threshold, label in LEVEL_LABEL:
         if score >= threshold:
@@ -409,8 +475,10 @@ def render(report: Report) -> str:
     lines.append("分析 %d 字 / %d 段 / %d 句" % (report.chars, report.paragraphs, report.sentences))
     lines.append("-" * 72)
     score = report.score
-    lines.append("得分 %d / 100  等级：%s   （启发式，只用于定位，不判断作者身份）"
-                 % (score, grade(score)))
+    reg = report.register_score
+    lines.append("AI 味 %d / 100（%s）   语体 %d / 100（%s）"
+                 % (score, grade(score), reg, grade_register(reg)))
+    lines.append("两者都要低：AI 味高是空话套话，语体高是大白话；目标区间各 ≤20。")
     m = report.metrics
     lines.append("句长均值 %s ｜ 句长变异 %s ｜ 连接词 %s/千字 ｜ 数字 %s/千字"
                  % (m.get("句长均值"), m.get("句长变异"),
@@ -426,7 +494,7 @@ def render(report: Report) -> str:
     for hit in report.hits:
         grouped.setdefault(hit.rule_id, []).append(hit)
 
-    for rule in RULES:
+    for rule in ALL_RULES:
         hits = grouped.get(rule.id)
         if not hits:
             continue
@@ -443,9 +511,10 @@ def render(report: Report) -> str:
     by_level: dict[str, int] = {}
     for hit in report.hits:
         by_level[hit.level] = by_level.get(hit.level, 0) + 1
-    lines.append("S 级 %d 条 / A 级 %d 条 / B 级 %d 条；规则说明见 "
-                 "references/anti-ai-academic-zh.md"
-                 % (by_level.get("S", 0), by_level.get("A", 0), by_level.get("B", 0)))
+    lines.append("S 级 %d 条 / A 级 %d 条 / B 级 %d 条 / R 级（口语）%d 条；"
+                 "规则说明见 references/anti-ai-academic-zh.md"
+                 % (by_level.get("S", 0), by_level.get("A", 0),
+                    by_level.get("B", 0), by_level.get("R", 0)))
     return "\n".join(lines)
 
 
@@ -457,6 +526,8 @@ def main(argv=None):
     src.add_argument("--docx", help="已生成的 .docx")
     src.add_argument("--json", help="内容模型 content.json")
     src.add_argument("--text", help="纯文本/Markdown（空行分段，# 开头视为标题）")
+    ap.add_argument("--max-register", type=int, default=None,
+                    help="语体分阈值（越大白越大）；超阈值退出码 1")
     ap.add_argument("--max-score", type=int, default=None,
                     help="分数超过该值时退出码为 1（用于 CI/交付门禁）")
     ap.add_argument("--json-out", action="store_true", help="输出 JSON 而不是报告文本")

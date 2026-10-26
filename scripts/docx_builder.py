@@ -956,8 +956,9 @@ class PaperBuilder:
                     space_after=space_after if space_after is not None else 6,
                     first_line_indent=Pt(24) if indent_chars else Pt(0),
                     first_line_chars=indent_chars * 100)
-        self._run(p, text, size=size if size is not None else self._s("body"),
-                  color=self._c("ink"))
+        add_rich_text(p, text, self._f("body_cn"), self._f("body_en"),
+                      size if size is not None else self._s("body"),
+                      False, rgb(self._c("ink")))
         return p
 
     def add_plain(self, text, size=None, color=None, align=None, indent_chars=0,
@@ -1503,17 +1504,42 @@ def _aligns(values):
 
 
 _SUP = re.compile(r"\^\{([^}]*)\}")
+# GB/T 7714—2015 顺序编码制：正文标注用方括号数字、置于所引内容之后、以上标形式给出。
+# 模型里写 [[1]]、[[1,3]]、[[1-3]]，渲染为上标 [1]、[1,3]、[1-3]。
+_CITE = re.compile(r"\[\[\s*(\d+(?:\s*[-–,，]\s*\d+)*)\s*\]\]")
+_CITE_NUM = re.compile(r"\d+")
 
 
 def add_rich_text(paragraph, text, cn="宋体", en="Times New Roman", size=10.5,
                   bold=False, color=None):
-    """写入一段文本，`^{a}` 渲染为上标（用于显著性标记与表注脚标）。"""
+    """写入一段文本，支持两种上标：
+
+    * `^{a}` —— 显著性/脚标；
+    * `[[1]]` / `[[1,3]]` / `[[1-3]]` —— **参考文献引文标注**（GB/T 7714—2015
+      顺序编码制，方括号数字、置于所引内容之后、以上标形式给出）。
+    """
     pos = 0
     for m in _SUP.finditer(text):
         if m.start() > pos:
+            _emit_with_citations(paragraph, text[pos:m.start()], cn, en, size,
+                                 bold, color)
+        run = set_run_font(paragraph.add_run(m.group(1)), cn, en, size, bold, color)
+        run.font.superscript = True
+        pos = m.end()
+    if pos < len(text):
+        _emit_with_citations(paragraph, text[pos:], cn, en, size, bold, color)
+
+
+def _emit_with_citations(paragraph, text, cn, en, size, bold, color):
+    """把 `[[n]]` 渲染为上标方括号引文标注。"""
+    pos = 0
+    for m in _CITE.finditer(text):
+        if m.start() > pos:
             set_run_font(paragraph.add_run(text[pos:m.start()]), cn, en, size,
                          bold, color)
-        run = set_run_font(paragraph.add_run(m.group(1)), cn, en, size, bold, color)
+        label = m.group(1).replace(" ", "")
+        run = set_run_font(paragraph.add_run("[%s]" % label), cn, en, size,
+                           bold, color)
         run.font.superscript = True
         pos = m.end()
     if pos < len(text):
