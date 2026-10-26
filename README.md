@@ -279,7 +279,7 @@ python scripts/apd.py demo -o build/demo
 │  references  │ ───────────► │ omml_latex.py    │          ┌────────────┐
 └──────────────┘              └──────────────────┘          │ report.pdf │
                                                              └─────┬──────┘
-                            ┌──────────────────┐   QA 42 项        │ 逐页渲染
+                            ┌──────────────────┐   QA 49 项        │ 逐页渲染
                             │ qa_check.py      │ ◄─────────────────┤
                             └──────────────────┘                   ▼
                                                         preview/page-*.png
@@ -299,7 +299,7 @@ academic-paper-docx/
 │   ├── omml_latex.py         LaTeX 子集 → OMML（零外部依赖）
 │   ├── ai_tone_check.py      「AI 味」启发式检测（只报警，不改稿）
 │   ├── build_docx.py         内容模型 JSON → docx
-│   ├── qa_check.py           42 项规范质检（含配色/精度/分辨率/文风）
+│   ├── qa_check.py           49 项规范质检（含配色/精度/分辨率/文风）
 │   ├── make_chart.py         旧名兼容入口（内部走 figures.py）
 │   ├── render_preview.py     PDF → 逐页 PNG + 空白页/书签体检
 │   ├── postprocess.ps1       Word COM：更新域/目录 + PDF + 固定 print 视图
@@ -316,7 +316,7 @@ academic-paper-docx/
 │   ├── minimal/content.json  最小示例（一页，无图）
 │   ├── demo/                 完整样例：内容模型 + 图表规格 + 配图
 │   └── python_api.py         不用 JSON、直接写 Python 的示例
-├── tests/                    133 个 pytest 用例
+├── tests/                    152 个 pytest 用例
 ├── docs/                     落地页 + 截图 + 示例 PDF
 └── .github/                  CI / Release / Pages / Issue 模板
 ```
@@ -329,7 +329,7 @@ academic-paper-docx/
 python scripts/apd.py figure work/fig1.json -o work/figs/fig1.png --grayscale
 ```
 
-- **毫米版面**：`width_mm: "half"` = 75 mm、`"full"` = 160 mm，按插入后不缩放设计字号线宽。
+- **毫米版面**：`width_mm: "half"` = 75 mm、`"full"` = **155 mm**（= 版心宽），按插入后不缩放设计字号线宽；图宽超版心直接报错。
 - **坐标轴**：`量符号/单位`，符号斜体、单位正体；只留左/下轴线；柱图零基线。
 - **色板**：默认 Okabe-Ito 8 色（色盲安全）；`jet`/`rainbow` 直接报错；顺序/发散自动选板。
   另有 **9 套主题色卡**（`rose6` / `spectral8` / `minimal6` / `map7` / `medical6` /
@@ -409,11 +409,11 @@ python scripts/apd.py qa work/report.docx --spec work/spec.json
     OK   公式编号连续、位于右侧单元格
 ...
 ==============================================================================
-通过 42 项，警告 1 项，失败 0 项
+通过 49 项，警告 1 项，失败 0 项
 结论：符合规范。
 ```
 
-42 项覆盖：页面几何、默认视图、三个核心样式、正文缩进/行距/对齐、列表形态、
+49 项覆盖：页面几何、默认视图、三个核心样式、正文缩进/行距/对齐、列表形态、
 三线表边框与表头、图表题字号/颜色/编号连续性、图片等比与宽度上限、OMML 与编号、
 TOC 域、页眉页脚域、参考文献缩进、交叉引用、字体白名单、空白页、占位符残留、文风提示。
 `--strict` 把 WARN 也当失败，适合 CI 门禁。

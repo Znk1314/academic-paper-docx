@@ -353,8 +353,56 @@ def test_hanging_cm_parameter(tmp_path):
 
 
 def test_caption_pt_and_color(built_doc):
-    cap = next(p for p in built_doc.paragraphs if p.text.startswith("表1"))
+    # 题注 = 表号 + 全角空格 + 题名；正文里"表1 给出…"不是题注
+    cap = next(p for p in built_doc.paragraphs
+               if p.text.startswith("\u88681\u3000"))
     run = cap.runs[0]
     assert run.font.size == Pt(9.5)
     assert str(run.font.color.rgb) == "1F3A5F"
     assert run.bold is True
+
+
+# ---------------------------------------------------------------- 国标条款
+
+def test_format_number_blank_semantics():
+    """5.5.4：空白 = 无此项或未测量；“—” = 测量过而未发现；0 = 实为零。"""
+    assert db.format_number(None) == ""
+    assert db.format_number(None, 2) == ""
+    assert db.format_number("") == ""
+    assert db.format_number("—") == "—"
+    assert db.format_number(0) == "0"
+
+
+def test_caption_uses_fullwidth_space(built):
+    """5.4.3 / 5.5.3：图号、表号与题名之间空 1 个汉字。"""
+    b = built[0]
+    _, fig_text = b.add_figure_caption("测试图题")
+    assert "\u3000" in fig_text and "  " not in fig_text
+    _, tbl_text = b.add_table_caption("测试表题")
+    assert "\u3000" in tbl_text
+
+
+def test_note_gets_period(built):
+    """5.4.3 / 5.5.3：图注、表注末尾应加“。”。"""
+    b = built[0]
+    p = b.add_note("数据为模拟结果")
+    assert p.text.strip().endswith("。")
+
+
+def test_figure_width_clamped_to_text_block(built):
+    """图宽超过版心时自动收窄并警告。"""
+    b = built[0]
+    b.add_figure(DEMO_FIGURE, caption="超宽测试", width_cm=20.0)
+    assert any("版心" in w for w in b.warnings)
+
+
+def test_figure_font_shrinks_when_inserted_narrow(built, tmp_path):
+    """155 mm 设计的图插入半栏 → 有效字号低于 6 pt 应告警。"""
+    import figures
+    spec = {"kind": "line", "width_mm": 155, "dpi": 300,
+            "series": [{"name": "A", "values": [1, 2, 3]}], "y_range": [0, 4]}
+    png = str(tmp_path / "wide.png")
+    figures.render(spec, png)
+    b = built[0]
+    b.add_figure(png, caption="缩太小", width_cm=7.5)
+    assert any("pt" in w and "低于" in w for w in b.warnings)

@@ -39,7 +39,7 @@ def test_width_is_exact_millimetres(tmp_path):
 
 
 def test_half_and_full_column_presets(tmp_path):
-    for layout, expected in (("half", 75), ("full", 160)):
+    for layout, expected in (("half", 75), ("full", 155)):
         out = _render(tmp_path, _spec(width_mm=layout), name="%s.png" % layout)
         with Image.open(out) as img:
             dpi = img.info["dpi"][0]

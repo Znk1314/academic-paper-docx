@@ -98,13 +98,20 @@ FONTS: dict[str, list[str]] = {
     "latin": ["Arial", "Helvetica", "DejaVu Sans"],
 }
 
-# 版面宽度（mm）：GB 类中文期刊常见约定；Nature 单栏 89 / 双栏 183 可作覆盖
+# 版面宽度（mm）。GB/T 7713.2—2022 5.4.1 只要求"大小适当、图中文字清晰可见"，
+# 具体数值按版心推导：本模板 A4 21 cm − 左右边距 2.6/2.4 cm = 版心 16.0 cm，
+# 通栏取 155 mm（与三线表同宽，留 5 mm 安全余量），半栏取 75 mm。
 WIDTH_MM: dict[str, float] = {
     "half": 75.0,      # 半栏
-    "full": 160.0,     # 通栏
+    "full": 155.0,     # 通栏（= 版心宽 15.5 cm）
+    "column-half": 75.0,
+    "column-full": 155.0,
     "nature-half": 89.0,
     "nature-full": 183.0,
 }
+
+# 图内文字的硬下限（pt）：六号 7.5 pt 是常用最小字号，低于 6 pt 印刷后基本不可读
+MIN_FIGURE_FONT_PT = 6.0
 
 # 线宽/字号（pt）——按"插入后不再缩放"设计
 STYLE: dict[str, dict] = {

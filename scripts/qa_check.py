@@ -396,7 +396,9 @@ def _caption_kind(p):
     正文里也常出现"图6给出…"这类以图号开头的句子，只靠正则会把它们误判成题注
     （进而误报字号/加粗，并把编号算重）。所以题注必须同时满足：居中、字号 ≤10 pt。
     """
-    text = p.text.strip()
+    if p._p.tag != qn("w:p"):        # 传进来的可能是表格节点
+        return None, None
+    text = (p.text or "").strip()
     m = re.match(r"^(图|表)\s*(\d+)", text)
     if not m:
         return None, None
@@ -731,6 +733,157 @@ def check_figure_quality(doc):
             "；".join(missing[:3]))
 
 
+
+def check_standard_figures(doc):
+    """GB/T 7713.2—2022 5.4：插图尺寸、字号、图注、先文后图。"""
+    import palette
+
+    sec = doc.sections[0]
+    text_w_cm = (sec.page_width - sec.left_margin - sec.right_margin) / 360000.0
+    usable_h_cm = (sec.page_height - sec.top_margin - sec.bottom_margin) / 360000.0
+
+    shapes = list(doc.inline_shapes)
+    if not shapes:
+        return
+    too_wide, too_tall, tiny = [], [], []
+    for idx, shape in enumerate(shapes, start=1):
+        w_cm = shape.width / 360000.0
+        h_cm = shape.height / 360000.0
+        if w_cm > text_w_cm + 0.05:
+            too_wide.append("图%d %.2f cm > 版心 %.2f cm" % (idx, w_cm, text_w_cm))
+        if h_cm > usable_h_cm - 3.0:      # 留出图题 + 图注 + 上下间距
+            too_tall.append("图%d 高 %.1f cm" % (idx, h_cm))
+        try:
+            blob = shape._inline.graphic.graphicData.pic.blipFill.blip.embed
+            part = doc.part.related_parts[blob]
+            import io as _io
+
+            from PIL import Image
+            img = Image.open(_io.BytesIO(part.blob))
+            info = dict(img.info)
+            nat_w = img.width
+            software = info.get("Software") or ""
+            design_w = design_pt = None
+            for token in software.split():
+                if token.startswith("width_mm="):
+                    design_w = float(token.split("=")[1])
+                elif token.startswith("font_pt="):
+                    design_pt = float(token.split("=")[1])
+            if design_w and design_pt and nat_w:
+                effective = design_pt * (w_cm * 10.0 / design_w)
+                if effective < palette.MIN_FIGURE_FONT_PT:
+                    tiny.append("图%d 约 %.1f pt" % (idx, effective))
+        except ImportError:
+            pass                      # 缺 Pillow：跳过字号核算
+
+    check("图片", "插图宽度 ≤ 版心宽（%.1f cm，GB/T 7713.2—2022 5.4.1）" % text_w_cm,
+          not too_wide, "；".join(too_wide[:3]))
+    check("图片", "插图高度不超一页可用高（%.1f cm）" % (usable_h_cm - 3.0),
+          not too_tall, "；".join(too_tall[:3]))
+    warn_if("图片", "图内文字插入后 ≥%.1f pt（图中文字清晰可见）"
+            % palette.MIN_FIGURE_FONT_PT, bool(tiny), "；".join(tiny[:3]))
+
+
+def check_standard_tables(doc):
+    """GB/T 7713.2—2022 5.5.4：表头不得有斜线、不得用“同上/同左”代替重复。"""
+    diagonal, ditto = [], []
+    for ti, tbl in enumerate(doc.tables, start=1):
+        for row in tbl.rows:
+            for cell in row.cells:
+                tcPr = cell._tc.find(qn("w:tcPr"))
+                if tcPr is None:
+                    continue
+                borders = tcPr.find(qn("w:tcBorders"))
+                if borders is not None:
+                    for edge in ("tl2br", "tr2bl"):
+                        node = borders.find(qn("w:" + edge))
+                        if node is not None and a(node, "val") not in (None, "nil", "none"):
+                            diagonal.append("表%d 表头有斜线" % ti)
+                text = cell.text.strip()
+                if text in ("同上", "同左", "同右", "〃", "‰"):
+                    ditto.append("表%d 单元格用了“%s”" % (ti, text))
+    check("表格", "表头不准许使用斜线（5.5.4）", not diagonal, "；".join(diagonal[:3]))
+    check("表格", "内容相同的栏应重复写出，不用“同上/同左”（5.5.4）",
+          not ditto, "；".join(ditto[:3]))
+
+
+def check_note_period(doc):
+    """5.4.3 / 5.5.3：图注、表注的末尾应加“。”。"""
+    bad = []
+    for p in _all_paragraphs(doc):
+        text = p.text.strip()
+        if not text.startswith("注："):
+            continue
+        if not text.endswith(("。", ".")):
+            bad.append(text[:18] + "…")
+    check("图表", "图注 / 表注末尾有句号（5.4.3、5.5.3）", not bad,
+          "；".join(bad[:3]))
+
+
+def check_caption_before_content(doc):
+    """5.4.5 / 5.5.5：插图、表格宜紧置首次提及处之后——先见文字后见图表。
+
+    题注行用 `_caption_kind`（居中 + ≤10 pt）识别，不用"以图号开头"判断：
+    正文里"图6给出……""表1 给出一个最小示例"这类句子同样以编号开头，
+    按文字判断会把它们误当题注，反而漏掉真正的提及。
+    """
+    from docx.text.paragraph import Paragraph
+
+    body = doc.element.body
+    nodes = list(body.iterchildren())
+
+    def para_at(node):
+        return Paragraph(node, doc._body)
+
+    def text_at(node):
+        if node.tag.split("}")[-1] != "p":
+            return ""
+        return "".join(t.text or "" for t in node.findall(".//" + qn("w:t"))).strip()
+
+    # 1) 图表本体 + 配对题注
+    items = []
+    caption_idx = set()
+    for idx, node in enumerate(nodes):
+        tag = node.tag.split("}")[-1]
+        if tag == "p" and node.findall(".//" + qn("w:drawing")):
+            for j in range(idx + 1, min(idx + 3, len(nodes))):
+                kind, info = _caption_kind(para_at(nodes[j]))
+                if kind == "图":
+                    items.append(("图", str(info[0]), idx))
+                    caption_idx.add(j)
+                    break
+        elif tag == "tbl":
+            for j in range(idx - 1, max(idx - 4, -1), -1):
+                kind, info = _caption_kind(para_at(nodes[j]))
+                if kind == "表":
+                    items.append(("表", str(info[0]), idx))
+                    caption_idx.add(j)
+                    break
+
+    # 2) 正文提及（排除题注行）
+    mention = {}
+    for idx, node in enumerate(nodes):
+        if idx in caption_idx:
+            continue
+        text = text_at(node)
+        if not text:
+            continue
+        for kind, num in re.findall(r"(图|表)\s*(\d+)", text):
+            mention.setdefault(kind + num, idx)
+
+    problems = []
+    for kind, number, pos in items:
+        key = kind + number
+        first = mention.get(key)
+        if first is None:
+            problems.append("%s 未在正文提及" % key)
+        elif first >= pos:
+            problems.append("%s 出现在首次提及之前" % key)
+    # 标准用"宜"（推荐性条款），故判 WARN；加 --strict 时会被提升为 FAIL
+    warn_if("图表", "先见文字后见图表（5.4.5、5.5.5）", bool(problems),
+            "；".join(problems[:3]))
+
+
 def check_ai_tone(path):
     """AI 味只做提示：分数是启发式的，不判断作者身份，也绝不判 FAIL。"""
     try:
@@ -836,6 +989,10 @@ def main(argv=None):
     check_blank_pages(doc)
     check_placeholders(doc)
     check_ai_tone(path)
+    check_standard_figures(doc)
+    check_standard_tables(doc)
+    check_note_period(doc)
+    check_caption_before_content(doc)
     check_table_precision(doc)
     check_palette(doc)
     check_figure_quality(doc)

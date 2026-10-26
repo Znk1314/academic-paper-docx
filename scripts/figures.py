@@ -175,6 +175,11 @@ def render(spec: dict, out_path: str, grayscale: bool = False) -> str:
     _check_colors(series, spec)
 
     width_mm = _width_mm(spec)
+    if width_mm < 30 or width_mm > palette.WIDTH_MM["full"]:
+        raise ValueError(
+            "图宽 %.1f mm 超出可用范围（30—%.0f mm）。GB/T 7713.2—2022 5.4.1 要求"
+            "插图大小适当、图中文字清晰可见：超出版心的图会被 Word 缩小，字号随之变小。"
+            % (width_mm, palette.WIDTH_MM["full"]))
     height_mm = float(spec.get("height_mm") or width_mm * ASPECT[kind])
     plt.rcParams.update({
         "font.size": style["font_size"],
@@ -251,11 +256,15 @@ def render(spec: dict, out_path: str, grayscale: bool = False) -> str:
     if ext.lstrip(".") not in formats:
         formats.insert(0, ext.lstrip("."))
 
+    # 记录设计宽度与基准字号：docx 端据此核算"插入后图内文字还剩几 pt"
+    software = "academic-paper-docx width_mm=%.1f font_pt=%.1f style=%s" % (
+        width_mm, style["font_size"], style_name)
     saved = []
     for fmt in formats:
         target = out_path if fmt == ext.lstrip(".") else "%s.%s" % (stem, fmt)
         # 不用 bbox_inches="tight"：tight 会把溢出标签算进来，导致实际宽度偏离 mm 设计值
-        fig.savefig(target, dpi=dpi, facecolor=fig.get_facecolor())
+        fig.savefig(target, dpi=dpi, facecolor=fig.get_facecolor(),
+                    metadata={"Software": software})
         saved.append(target)
 
     if grayscale:

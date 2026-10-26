@@ -134,3 +134,60 @@ def test_repo_examples_pass_qa(example, tmp_path, capsys, repo):
     code, out = run_qa(path, capsys)
     assert code == 0, out
     assert "失败 0 项" in out
+
+
+# ---------------------------------------------------------------- 国标条款
+
+def test_note_period_check_flags_missing_period(built, tmp_path):
+    """写一条不带句号的注，qa 应判 FAIL（5.4.3 / 5.5.3）。"""
+    import qa_check
+    from docx import Document
+    doc = Document(built[1])
+    doc.add_paragraph("注：这条注释没有句号")
+    path = str(tmp_path / "no_period.docx")
+    doc.save(path)
+
+    qa_check.RESULTS.clear()
+    qa_check.COUNTS.update({"PASS": 0, "WARN": 0, "FAIL": 0})
+    qa_check.check_note_period(Document(path))
+    names = [r[2] for r in qa_check.RESULTS]
+    assert any("注" in n for n in names)
+
+
+def test_caption_order_detects_mention_after_figure(built, tmp_path):
+    """先图后文应被判为顺序问题（5.4.5）。"""
+    import qa_check
+    from docx import Document
+    doc = Document(built[1])
+    path = str(tmp_path / "order.docx")
+    doc.save(path)
+
+    qa_check.RESULTS.clear()
+    qa_check.COUNTS.update({"PASS": 0, "WARN": 0, "FAIL": 0})
+    qa_check.check_caption_before_content(Document(path))
+    # 5.4.5/5.5.5 是"宜"条款：顺序问题记为 WARN，不判 FAIL
+    assert not [r for r in qa_check.RESULTS if r[0] == "FAIL"]
+
+
+def test_table_diagonal_border_detected(built):
+    """表头斜线应被识别（5.5.4）。"""
+    import qa_check
+    from docx import Document
+    from docx.oxml import OxmlElement
+    from docx.oxml.ns import qn
+
+    doc = Document(built[1])
+    tables = doc.tables
+    cell = tables[0].rows[0].cells[0]
+    tcPr = cell._tc.get_or_add_tcPr()
+    borders = OxmlElement("w:tcBorders")
+    diag = OxmlElement("w:tl2br")
+    diag.set(qn("w:val"), "single")
+    diag.set(qn("w:sz"), "6")
+    borders.append(diag)
+    tcPr.append(borders)
+
+    qa_check.RESULTS.clear()
+    qa_check.COUNTS.update({"PASS": 0, "WARN": 0, "FAIL": 0})
+    qa_check.check_standard_tables(doc)
+    assert any(r[0] == "FAIL" for r in qa_check.RESULTS)

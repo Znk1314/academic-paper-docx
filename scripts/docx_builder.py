@@ -63,8 +63,14 @@ SPEC = {
     },
     "text_width_cm": 15.8,
     "table_width_cm": 15.5,
-    "figure_default_cm": 14.0,
-    "figure_max_cm": 15.5,
+    # 插图尺寸（GB/T 7713.2—2022 5.4.1：大小适当、图中文字清晰可见）
+    # 版心宽 = 21 − 2.6 − 2.4 = 16.0 cm；通栏取 15.5 cm 与三线表同宽，留安全余量。
+    "figure_half_cm": 7.5,        # 半栏 75 mm
+    "figure_full_cm": 15.5,       # 通栏 155 mm
+    "figure_default_cm": 15.5,
+    "figure_max_cm": 15.5,        # 不得超过版心
+    "figure_max_height_cm": 22.0,  # 图 + 图题 + 图注须容于一页
+    "figure_min_font_pt": 6.0,    # 插入后图内文字有效字号下限
     "cover_top_space_pt": 104,
     "cover_bottom_space_pt": 132,
     "table_header_color": "navy",   # 表头文字色；想更素净可改成 "ink"
@@ -954,7 +960,7 @@ class PaperBuilder:
     def add_table_caption(self, caption, caption_en=None):
         self.tbl_no += 1
         body = self._strip_number(caption)
-        text = "表%d  %s" % (self.tbl_no, body) if body else "表%d" % self.tbl_no
+        text = "表%d　%s" % (self.tbl_no, body) if body else "表%d" % self.tbl_no
         p = self.doc.add_paragraph()
         para_format(p, align=WD_ALIGN_PARAGRAPH.CENTER, first_line_indent=0,
                     first_line_chars=0, space_before=6, space_after=3,
@@ -970,7 +976,7 @@ class PaperBuilder:
     def add_figure_caption(self, caption, keep_with_next=False, caption_en=None):
         self.fig_no += 1
         body = self._strip_number(caption)
-        text = "图%d  %s" % (self.fig_no, body) if body else "图%d" % self.fig_no
+        text = "图%d　%s" % (self.fig_no, body) if body else "图%d" % self.fig_no
         p = self.doc.add_paragraph()
         para_format(p, align=WD_ALIGN_PARAGRAPH.CENTER, first_line_indent=0,
                     first_line_chars=0, space_before=4, space_after=3,
@@ -987,6 +993,9 @@ class PaperBuilder:
         text = note.strip()
         if not text.startswith("注"):
             text = "注：" + text
+        # GB/T 7713.2—2022 5.4.3 / 5.5.3：图注、表注的末尾应加“。”
+        if not text.endswith(("。", ".", "）", ")")):
+            text = text + "。"
         p = self.doc.add_paragraph()
         para_format(p, align=align, first_line_indent=0, first_line_chars=0,
                     space_before=2, space_after=6, line_spacing=1.2)
@@ -1088,15 +1097,62 @@ class PaperBuilder:
     # ---------- 图片
     def add_figure(self, path, caption=None, note=None, width_cm=None,
                    caption_en=None):
+        """插入插图并校验尺寸（GB/T 7713.2—2022 5.4.1）。
+
+        三道约束：
+        1. 宽度不得超过版心（默认 15.5 cm），超了自动收窄并记警告；
+        2. 图 + 图题 + 图注须容于一页（默认图高 ≤22 cm）；
+        3. 插入后图内文字有效字号 ≥6 pt —— 由 PNG 里记录的"设计宽度/基准字号"
+           换算，缩得太小会打印不清（正是 5.4.1 说的"图中文字清晰可见"）。
+        """
         path = self._resolve_path(path)
         if not os.path.exists(path):
             raise FileNotFoundError("图片不存在：%s" % path)
+        name = os.path.basename(path)
         width_cm = float(width_cm or self.spec["figure_default_cm"])
         max_w = self.spec["figure_max_cm"]
         if width_cm > max_w:
-            self.warnings.append("图片 %s 宽度 %.1f cm 超过 %.1f cm，已自动收窄"
-                                 % (os.path.basename(path), width_cm, max_w))
+            self.warnings.append("图片 %s 宽度 %.1f cm 超过版心 %.1f cm，已自动收窄"
+                                 % (name, width_cm, max_w))
             width_cm = max_w
+
+        # 原生尺寸 → 高度与缩放比
+        try:
+            from PIL import Image
+            with Image.open(path) as img:
+                nat_w, nat_h = img.size
+                info = dict(img.info)
+        except Exception:      # 缺 Pillow 或非 PIL 可读格式：跳过尺寸校验
+            nat_w = nat_h = 0
+            info = {}
+
+        if nat_w and nat_h:
+            height_cm = width_cm * nat_h / nat_w
+            limit_h = self.spec["figure_max_height_cm"]
+            if height_cm > limit_h:
+                self.warnings.append(
+                    "图片 %s 插入后高 %.1f cm 超过 %.1f cm，图+图题+图注可能跨页"
+                    "（GB/T 7713.2—2022 5.4.5 要求插图紧随首次提及处、不拆散）"
+                    % (name, height_cm, limit_h))
+
+            software = info.get("Software") or ""
+            design_w = design_pt = None
+            for token in software.split():
+                if token.startswith("width_mm="):
+                    design_w = float(token.split("=")[1])
+                elif token.startswith("font_pt="):
+                    design_pt = float(token.split("=")[1])
+            if design_w and design_pt:
+                scale = width_cm * 10.0 / design_w
+                effective = design_pt * scale
+                floor = self.spec["figure_min_font_pt"]
+                if effective < floor:
+                    self.warnings.append(
+                        "图片 %s 插入后图内文字仅约 %.1f pt（原设计 %.1f pt、"
+                        "宽 %.0f mm，现插入 %.0f mm），低于 %.1f pt 印刷难辨"
+                        "（GB/T 7713.2—2022 5.4.1）"
+                        % (name, effective, design_pt, design_w,
+                           width_cm * 10, floor))
 
         p = self.doc.add_paragraph()
         para_format(p, align=WD_ALIGN_PARAGRAPH.CENTER, first_line_indent=0,
@@ -1388,13 +1444,17 @@ def add_rich_text(paragraph, text, cn="宋体", en="Times New Roman", size=10.5,
 
 
 def format_number(value, digits=None):
-    """按列精度格式化；None/空 → '—'（规范：空缺用破折号，不得写"同上"）。"""
+    """按列精度格式化。
+
+    GB/T 7713.2—2022 5.5.4：表身中**空白**表示无此项或未测量，**—** 表示测量过
+    而未发现，**0** 表示实测结果为零。因此 None/"" → 空白，不自动写"—"。
+    """
     if value is None:
-        return "—"
+        return ""      # 5.5.4：空白 = 无此项或未测量；需要“—”时请在数据里显式写 "—"
     if isinstance(value, str):
         text = value.strip()
         if text == "":
-            return "—"
+            return ""
         if digits is None:
             return text
         try:
