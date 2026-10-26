@@ -42,13 +42,14 @@ EXPECT = {
     "reference_pt": 9,
     "header_pt": 8.5,
     "footer_pt": 8,
+    "doc_colors": None,   # --spec 覆盖后的文档色（换肤时校验用）
 }
 
 
 def apply_spec(path):
     """按 spec 覆盖文件（与 build_docx.py --spec 同一份）校准期望值。"""
     import json
-    with open(os.path.abspath(path), encoding="utf-8") as fh:
+    with open(os.path.abspath(path), encoding="utf-8-sig") as fh:
         spec = json.load(fh)
     colors = spec.get("colors") or {}
     sizes = spec.get("sizes") or {}
@@ -65,6 +66,18 @@ def apply_spec(path):
     for key in ("caption", "reference", "header", "footer"):
         if key in sizes:
             EXPECT[key + "_pt"] = float(sizes[key])
+
+    # 换肤后：被覆盖的文档色也算"批准色"，否则配色检查会误判 FAIL
+    import palette
+
+    overrides = set()
+    role_map = {"navy": "heading", "blue": "accent", "orange": "warn",
+                "green": "ok", "ink": "ink", "gray": "muted",
+                "pale": "pale", "pale_line": "rule"}
+    for key, value in colors.items():
+        if key in role_map and value:
+            overrides.add(palette.normalize(str(value)))
+    EXPECT["doc_colors"] = overrides or None
 
 
 def check(group, name, ok, detail="", warn=False):
@@ -433,15 +446,15 @@ def check_tables_and_captions(doc):
             tcPr = first_cell.find(qn("w:tcPr"))
             tcB = tcPr.find(qn("w:tcBorders")) if tcPr is not None else None
             bottom = tcB.find(qn("w:bottom")) if tcB is not None else None
-            if bottom is None or a(bottom, "sz") != "8":
-                problems.append("表头下边线不是 1 pt（sz=8）")
+            if bottom is None or a(bottom, "sz") != "6":
+                problems.append("栏目线不是 0.75 pt（sz=6）")
         for tr in rows:
             trPr = tr.find(qn("w:trPr"))
             if trPr is None or trPr.find(qn("w:cantSplit")) is None:
                 problems.append("存在允许跨页拆分的表格行")
                 break
 
-    check("表格", "数据表为三线表（顶/底线 1.5pt、表头线 1pt、无竖线）",
+    check("表格", "数据表为三线表（顶/底线 1.5pt、栏目线 0.75pt、无竖线）",
           not problems, "；".join(problems[:3]) + ("…" if len(problems) > 3 else ""))
     check("表格", "表格统计：三线表 %d 个 / 无边框表 %d 个"
           % (three_line, borderless), True)
@@ -613,6 +626,98 @@ def check_placeholders(doc):
         COUNTS["WARN"] += 1
 
 
+def check_table_precision(doc):
+    """同一列小数位数必须一致（GB/T 7713.2）；空缺允许用破折号。"""
+    problems = []
+    number = re.compile(r"^-?\d+(?:\.\d+)?$")
+    for ti, tbl in enumerate(doc.tables, start=1):
+        borders = tbl._tbl.find(qn("w:tblPr")).find(qn("w:tblBorders"))
+        if borders is None:
+            continue
+        spec = {e.tag.split("}")[-1]: a(e, "val") for e in borders}
+        if spec.get("top") != "single":
+            continue        # 只看三线表（封面/公式表不算）
+        grid = [[c.text.strip() for c in row.cells] for row in tbl.rows[1:]]
+        if not grid:
+            continue
+        ncol = max(len(r) for r in grid)
+        for col in range(ncol):
+            decimals = set()
+            for row in grid:
+                if col >= len(row):
+                    continue
+                cell = row[col].replace("±", " ").split()[0] if row[col] else ""
+                if cell in ("", "—", "-", "–"):
+                    continue
+                if not number.match(cell):
+                    continue
+                decimals.add(len(cell.split(".")[1]) if "." in cell else 0)
+            if len(decimals) > 1:
+                problems.append("表%d 第 %d 列小数位不一致：%s"
+                                % (ti, col + 1, sorted(decimals)))
+    check("表格", "同一列数字小数位一致（空缺用“—”）", not problems,
+          "；".join(problems[:3]))
+
+
+def check_palette(doc):
+    """文档用色必须来自 palette.py：全部在批准色板内，且彩色 ≤5。"""
+    import palette
+
+    allowed = {palette.normalize(v) for v in palette.DOC.values()}
+    allowed |= {palette.normalize(c) for c in palette.SERIES}
+    allowed |= {palette.normalize(c) for c in palette.GREY_RAMP}
+    allowed.add("#FFFFFF")
+    if EXPECT.get("doc_colors"):        # --spec 换肤后的颜色同样视为批准
+        allowed |= set(EXPECT["doc_colors"])
+    unknown = {}
+    used = set()
+    for para in _all_paragraphs(doc):
+        for run in para.runs:
+            color = run.font.color
+            if color is None or color.rgb is None:
+                continue
+            value = palette.normalize(str(color.rgb))
+            used.add(value)
+            if value not in allowed:
+                unknown[value] = unknown.get(value, 0) + 1
+    check("配色", "文档用色均来自 palette.py 的批准色板", not unknown,
+          "未批准：" + "、".join("%s×%d" % kv for kv in list(unknown.items())[:4]))
+    chromatic = palette.chromatic_count(sorted(used))
+    check("配色", "彩色数量 ≤5（实测 %d 种）" % chromatic, chromatic <= 5)
+
+
+def check_figure_quality(doc):
+    """插图分辨率与版面宽度：线条图 ≥600 dpi（目标 1000），宽度 ≤160 mm。"""
+    shapes = doc.inline_shapes
+    if not shapes:
+        warn_if("图片", "文档中没有图片（如不需要可忽略）", True)
+        return
+    low, too_wide, missing = [], [], []
+    for shape in shapes:
+        width_mm = shape.width / 36000.0
+        if width_mm > 160.5:
+            too_wide.append("%.1f mm" % width_mm)
+        try:
+            blob = shape._inline.graphic.graphicData.pic.blipFill.blip.embed
+            part = doc.part.related_parts[blob]
+            import io
+
+            from PIL import Image
+            img = Image.open(io.BytesIO(part.blob))
+            dpi = img.info.get("dpi")
+            if not dpi:
+                missing.append("%.1f mm 无 dpi 信息" % width_mm)
+            elif float(dpi[0]) < 600:
+                low.append("%.0f dpi" % float(dpi[0]))
+        except Exception as exc:  # pragma: no cover
+            missing.append(str(exc))
+    check("图片", "插图分辨率 ≥600 dpi（线条图目标 1000）", not low, "；".join(low[:3]))
+    check("图片", "插图宽度 ≤160 mm（半栏 75 / 通栏 160）", not too_wide,
+          "；".join(too_wide[:3]))
+    warn_if("图片", "插图带 dpi 元数据（便于期刊核对）", bool(missing),
+            "；".join(missing[:3]))
+
+
 def check_ai_tone(path):
     """AI 味只做提示：分数是启发式的，不判断作者身份，也绝不判 FAIL。"""
     try:
@@ -718,6 +823,9 @@ def main(argv=None):
     check_blank_pages(doc)
     check_placeholders(doc)
     check_ai_tone(path)
+    check_table_precision(doc)
+    check_palette(doc)
+    check_figure_quality(doc)
 
     if args.pdf:
         try:

@@ -14,6 +14,7 @@ import copy
 import os
 import re
 
+import palette
 from docx import Document
 from docx.enum.table import WD_ALIGN_VERTICAL, WD_TABLE_ALIGNMENT
 from docx.enum.text import WD_ALIGN_PARAGRAPH, WD_BREAK
@@ -35,15 +36,17 @@ SPEC = {
         "header_cm": 1.2, "footer_cm": 1.0,
         "different_first_page": True,
     },
+    # 文档版式色：全部来自 palette.py 的 DOC 角色（单一色值来源），
+    # 彩色数 = 4（深蓝 / 蓝 / 橙 / 绿），彩色数与灰度可辨性由 qa_check 校验。
     "colors": {
-        "navy": "1F3A5F",   # 一级标题 / 深色强调
-        "blue": "0072B2",   # 二级标题 / 强调线
-        "orange": "E69F00",  # 辅助强调
-        "green": "009E73",  # 正向 / 完成
-        "ink": "262626",    # 正文
-        "gray": "595959",   # 次级说明
-        "pale": "EAF2FA",   # 浅色提示框
-        "pale_line": "B4C6E7",  # 浅色边框
+        "navy": palette.DOC["heading"].lstrip("#"),     # 一级标题（中性深蓝）
+        "blue": palette.DOC["accent"].lstrip("#"),      # 二级标题 / 强调线（Okabe-Ito blue）
+        "orange": palette.DOC["warn"].lstrip("#"),      # 辅助强调（Okabe-Ito orange）
+        "green": palette.DOC["ok"].lstrip("#"),         # 正向 / 完成（Okabe-Ito green）
+        "ink": palette.DOC["ink"].lstrip("#"),          # 正文
+        "gray": palette.DOC["muted"].lstrip("#"),       # 次级说明
+        "pale": palette.DOC["pale"].lstrip("#"),        # 浅色提示框
+        "pale_line": palette.DOC["rule"].lstrip("#"),   # 浅色边框
     },
     "fonts": {
         "head_cn": "黑体", "head_en": "Arial",
@@ -365,8 +368,12 @@ def set_cell_borders(cell, **edges):
     insert_ordered(tcPr, borders, TCPR_ORDER)
 
 
-def set_three_line_table(table, outer_sz=12, header_sz=8, color="000000"):
-    """顶线/底线 1.5 pt，表头下线 1 pt，无竖线（spec §10.4）。"""
+def set_three_line_table(table, outer_sz=12, header_sz=6, color="000000"):
+    """三线表：顶/底线 1.5 pt(sz=12)、栏目线 0.75 pt(sz=6)、无竖线。
+
+    GB/T 7713.2 规定的是三线表的**构成**（顶线/栏目线/底线，不画竖线）；
+    具体磅值属期刊惯例，顶底 1.5 磅、栏目线 0.5—0.75 磅是通行区间，这里取 0.75。
+    """
     tbl = table._tbl
     tblPr = tbl.tblPr
     remove_children(tblPr, "tblBorders")
@@ -944,7 +951,7 @@ class PaperBuilder:
     def _strip_number(text):
         return re.sub(r"^(图|表)\s*\d+(?:[-.]\d+)?\s*", "", (text or "").strip())
 
-    def add_table_caption(self, caption):
+    def add_table_caption(self, caption, caption_en=None):
         self.tbl_no += 1
         body = self._strip_number(caption)
         text = "表%d  %s" % (self.tbl_no, body) if body else "表%d" % self.tbl_no
@@ -954,9 +961,13 @@ class PaperBuilder:
                     line_spacing=1.2, keep_with_next=True)
         self._run(p, text, self._f("head_cn"), self._f("head_en"),
                   self._s("caption"), True, self._c("navy"))
+        if caption_en:
+            self._run(p, "  " + str(caption_en).strip(), self._f("head_cn"),
+                      self._f("head_en"), self._s("caption"), False,
+                      self._c("navy"))
         return p, text
 
-    def add_figure_caption(self, caption, keep_with_next=False):
+    def add_figure_caption(self, caption, keep_with_next=False, caption_en=None):
         self.fig_no += 1
         body = self._strip_number(caption)
         text = "图%d  %s" % (self.fig_no, body) if body else "图%d" % self.fig_no
@@ -966,6 +977,10 @@ class PaperBuilder:
                     line_spacing=1.2, keep_with_next=keep_with_next)
         self._run(p, text, self._f("head_cn"), self._f("head_en"),
                   self._s("caption"), True, self._c("navy"))
+        if caption_en:
+            self._run(p, "  " + str(caption_en).strip(), self._f("head_cn"),
+                      self._f("head_en"), self._s("caption"), False,
+                      self._c("navy"))
         return p, text
 
     def add_note(self, note, align=WD_ALIGN_PARAGRAPH.LEFT):
@@ -975,26 +990,58 @@ class PaperBuilder:
         p = self.doc.add_paragraph()
         para_format(p, align=align, first_line_indent=0, first_line_chars=0,
                     space_before=2, space_after=6, line_spacing=1.2)
-        self._run(p, text, size=self._s("note"), color=self._c("gray"))
+        add_rich_text(p, text, self._f("body_cn"), self._f("body_en"),
+                      self._s("note"), False, rgb(self._c("gray")))
         return p
 
     # ---------- 三线表
-    def add_table(self, headers, rows, caption=None, note=None, widths=None,
-                  aligns=None, table_size=None):
+    def add_table(self, headers=None, rows=None, caption=None, note=None,
+                  widths=None, aligns=None, table_size=None, columns=None,
+                  caption_en=None, digits=None):
+        """三线表。
+
+        `columns` 给出列元信息（label/unit/digits/align），表头自动写成
+        "量名称/单位"，数值按 `digits` 统一精度（规范 3.3：同一列小数位一致）。
+        单元格里的 `^{a}` 会渲染为上标，用于显著性/脚标。
+        """
+        rows = rows or []
+        if columns:
+            headers = build_headers(columns)
+            if digits is None:
+                digits = [c.get("digits") for c in columns]
+            if aligns is None:
+                default_align = []
+                for col in columns:
+                    kind = str(col.get("align", "")).lower()
+                    if kind in _ALIGN_MAP:
+                        default_align.append(_ALIGN_MAP[kind])
+                    elif kind == "decimal":
+                        default_align.append(WD_ALIGN_PARAGRAPH.RIGHT)
+                    elif col.get("digits") is not None:
+                        default_align.append(WD_ALIGN_PARAGRAPH.RIGHT)
+                    else:
+                        default_align.append(None)
+                aligns = default_align
+        headers = headers or []
+
         total = self.spec["table_width_cm"]
         if caption:
-            self.add_table_caption(caption)
+            self.add_table_caption(caption, caption_en)
         ncol = len(headers)
         if not widths:
             widths = [total / ncol] * ncol
         scale = total / sum(widths)
         widths = [w * scale for w in widths]
+        base_aligns = [WD_ALIGN_PARAGRAPH.CENTER] + [WD_ALIGN_PARAGRAPH.LEFT] * (ncol - 1)
         if aligns is None:
-            aligns = [WD_ALIGN_PARAGRAPH.CENTER] + [WD_ALIGN_PARAGRAPH.LEFT] * (ncol - 1)
+            aligns = base_aligns
         else:
             aligns = [x if not isinstance(x, str)
                       else _ALIGN_MAP.get(x.lower(), WD_ALIGN_PARAGRAPH.LEFT)
                       for x in aligns]
+            aligns = [a if a is not None else (base_aligns[i] if i < ncol
+                                               else WD_ALIGN_PARAGRAPH.LEFT)
+                      for i, a in enumerate(aligns)]
 
         table = self.doc.add_table(rows=1, cols=ncol)
         table.alignment = WD_TABLE_ALIGNMENT.CENTER
@@ -1024,8 +1071,12 @@ class PaperBuilder:
                 para_format(p, align=aligns[i] if i < len(aligns) else WD_ALIGN_PARAGRAPH.LEFT,
                             first_line_indent=0, first_line_chars=0,
                             space_before=1.5, space_after=1.5, line_spacing=1.15)
-                self._run(p, str(value), self._f("body_cn"), self._f("body_en"),
-                          size, False, self._c("ink"))
+                col_digits = None
+                if digits is not None and i < len(digits):
+                    col_digits = digits[i]
+                text = format_number(value, col_digits)
+                add_rich_text(p, text, self._f("body_cn"), self._f("body_en"),
+                              size, False, rgb(self._c("ink")))
 
         set_three_line_table(table)
         set_table_repeat_header(table)
@@ -1035,7 +1086,8 @@ class PaperBuilder:
         return table
 
     # ---------- 图片
-    def add_figure(self, path, caption=None, note=None, width_cm=None):
+    def add_figure(self, path, caption=None, note=None, width_cm=None,
+                   caption_en=None):
         path = self._resolve_path(path)
         if not os.path.exists(path):
             raise FileNotFoundError("图片不存在：%s" % path)
@@ -1053,7 +1105,8 @@ class PaperBuilder:
         run = p.add_run()
         run.add_picture(path, width=Cm(width_cm))  # 只给宽度 → 等比缩放
         if caption:
-            self.add_figure_caption(caption, keep_with_next=bool(note))
+            self.add_figure_caption(caption, keep_with_next=bool(note),
+                                    caption_en=caption_en)
         if note:
             self.add_note(note, align=WD_ALIGN_PARAGRAPH.CENTER)
         return p
@@ -1223,14 +1276,18 @@ class PaperBuilder:
         elif typ == "list":
             self.add_list(item["items"], start=item.get("start", 1))
         elif typ == "table":
-            self.add_table(item["headers"], item["rows"],
+            self.add_table(item.get("headers"), item.get("rows"),
                            caption=item.get("caption"),
+                           caption_en=item.get("caption_en"),
                            note=item.get("note"),
                            widths=item.get("widths"),
                            aligns=_aligns(item.get("aligns")),
-                           table_size=item.get("font_size"))
+                           table_size=item.get("font_size"),
+                           columns=item.get("columns"),
+                           digits=item.get("digits"))
         elif typ == "figure":
             self.add_figure(item["path"], caption=item.get("caption"),
+                            caption_en=item.get("caption_en"),
                             note=item.get("note"),
                             width_cm=item.get("width_cm"))
         elif typ == "equation":
@@ -1310,6 +1367,57 @@ def _aligns(values):
     if not values:
         return None
     return [_ALIGN_MAP.get(str(v).lower(), WD_ALIGN_PARAGRAPH.LEFT) for v in values]
+
+
+_SUP = re.compile(r"\^\{([^}]*)\}")
+
+
+def add_rich_text(paragraph, text, cn="宋体", en="Times New Roman", size=10.5,
+                  bold=False, color=None):
+    """写入一段文本，`^{a}` 渲染为上标（用于显著性标记与表注脚标）。"""
+    pos = 0
+    for m in _SUP.finditer(text):
+        if m.start() > pos:
+            set_run_font(paragraph.add_run(text[pos:m.start()]), cn, en, size,
+                         bold, color)
+        run = set_run_font(paragraph.add_run(m.group(1)), cn, en, size, bold, color)
+        run.font.superscript = True
+        pos = m.end()
+    if pos < len(text):
+        set_run_font(paragraph.add_run(text[pos:]), cn, en, size, bold, color)
+
+
+def format_number(value, digits=None):
+    """按列精度格式化；None/空 → '—'（规范：空缺用破折号，不得写"同上"）。"""
+    if value is None:
+        return "—"
+    if isinstance(value, str):
+        text = value.strip()
+        if text == "":
+            return "—"
+        if digits is None:
+            return text
+        try:
+            return format_number(float(text), digits)
+        except ValueError:
+            return text
+    if isinstance(value, bool):
+        return str(value)
+    if isinstance(value, (int, float)):
+        if digits is None:
+            return ("%g" % value) if isinstance(value, float) else str(value)
+        return ("%." + str(int(digits)) + "f") % float(value)
+    return str(value)
+
+
+def build_headers(columns):
+    """从列元信息生成表头：'量名称/单位'（规范 3.3）。"""
+    headers = []
+    for col in columns:
+        label = str(col.get("label", ""))
+        unit = str(col.get("unit", "")).strip()
+        headers.append("%s/%s" % (label, unit) if unit else label)
+    return headers
 
 
 def _clear_tabs(paragraph):

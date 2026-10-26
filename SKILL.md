@@ -226,6 +226,8 @@ academic-paper-docx/
 │   ├── apd.py                  统一 CLI：doctor/build/post/qa/preview/chart/tone/demo
 │   ├── build_docx.py           内容模型 JSON → docx（主入口）
 │   ├── docx_builder.py         格式库 / Python API（SPEC 在文件顶部）
+│   ├── palette.py              唯一配色源（Okabe-Ito / Tol / Viridis 家族）
+│   ├── figures.py              插图渲染（毫米版面 / 1000 dpi / 矢量 / 灰度自检）
 │   ├── omml_latex.py           LaTeX 子集 → OMML
 │   ├── ai_tone_check.py        「AI 味」启发式检测（只报警，不改稿）
 │   ├── make_chart.py           规范配色图表 PNG
@@ -233,9 +235,11 @@ academic-paper-docx/
 │   ├── postprocess.sh          LibreOffice 兜底
 │   ├── set_view.py             只改 settings.xml 强制 print 视图
 │   ├── render_preview.py       PDF → PNG 逐页预览 + 体检
-│   └── qa_check.py             规范自动质检（36 项，含文风提示项）
+│   └── qa_check.py             规范自动质检（40 项，含配色/精度/分辨率/文风）
 ├── references/
 │   ├── format-spec.md          完整规范（权威，35 KB）
+│   ├── figure-table-standard.md 图表规范（核对 GB/T 7713.2 与期刊惯例）
+│   ├── palette.md              配色规范（色板、色盲、灰度、语义）
 │   ├── anti-ai-academic-zh.md  「AI 味」规则、学术豁免清单、改写协议
 │   ├── checklist.md            交付前人工核对清单
 │   └── troubleshooting.md      已知坑与修复
@@ -243,14 +247,75 @@ academic-paper-docx/
 │   ├── minimal/content.json    最小示例（一页，无图）—— 建议从这里开始
 │   ├── demo/                   完整样例（content_model.json + charts + figs）
 │   └── python_api.py           Python API 示例
-├── tests/                      104 个 pytest 用例（改格式后跑一遍）
+├── tests/                      133 个 pytest 用例（改格式后跑一遍）
 └── docs/                       落地页 + 截图 + 示例 PDF
 ```
 
 > 改了 `scripts/` 里的格式逻辑后，务必跑 `python -m pytest -q` 与
 > `python scripts/apd.py qa` 验证，不要只靠肉眼。
 
-## 11. 正文的「AI 味」：怎么认、怎么改、哪里不能改
+## 11. 图表与配色（GB/T 7713.2 + 期刊惯例）
+
+完整规范：`references/figure-table-standard.md`、`references/palette.md`。
+
+**不要自己配颜色、自己调像素**，按下面的流程走：
+
+### 11.1 出图
+
+```bash
+python <SKILL_DIR>/scripts/figures.py work/fig1.json -o work/figs/fig1.png --grayscale
+```
+
+图的 JSON 关键字段：
+
+```jsonc
+{
+  "kind": "line|bar|grouped_bar|scatter|errorbar|box|heatmap",
+  "xlabel": {"label": "采样周期", "symbol": "t", "unit": "s"},
+  "ylabel": {"label": "平均功耗", "symbol": "P", "unit": "mW"},
+  "width_mm": "half | full | 140",      // 半栏 75 / 通栏 160，按插入后不缩放设计
+  "style": "cn | nature | ieee",
+  "dpi": 1000, "formats": ["png", "pdf"],
+  "series": [{"name": "本文", "values": [15.9, 10.4], "error": [0.5, 0.4]}],
+  "brackets": [{"x1": 0, "x2": 1, "label": "**"}],   // 显著性
+  "cmap": "viridis"                     // 热图；jet/rainbow 会直接报错
+}
+```
+
+出图时的硬约束（违反会报错，不是建议）：
+- 颜色只能取自 `palette.SERIES`（Okabe-Ito）；红绿色盲下同色的组合直接拒绝。
+- 定量数据禁用 `jet`/`rainbow`。
+- 每个系列自动配"颜色 + 线型 + 标记"三重编码，黑白打印与色觉障碍都能读。
+
+### 11.2 配表
+
+表用 `columns` 给列元信息，表头自动写成"量名称/单位"，数值自动按位数格式化：
+
+```jsonc
+{"type": "table",
+ "caption": "不同采样周期下的功耗", "caption_en": "Power versus sampling period",
+ "columns": [
+   {"label": "采样周期", "unit": "s", "digits": 0},
+   {"label": "平均功耗", "unit": "mW", "digits": 1}
+ ],
+ "rows": [[30, 15.9], [60, 10.4]],
+ "note": "注：a 为模拟数据。标 * 者 P<0.05。"}
+```
+
+自动做到：顶/底线 1.5 pt、栏目线 **0.75 pt**、无竖线、表头重复、行不跨页、
+同列小数位一致、空缺写 `—`、`^{a}` 渲染为上标、中英对照题注。
+
+### 11.3 交付前自检
+
+`qa_check.py` 里与图表/配色相关的检查项（任一 FAIL 必须修）：
+
+| 组 | 检查 |
+|---|---|
+| 表格 | 三线表 1.5/0.75 pt 无竖线；同列小数位一致 |
+| 图片 | 分辨率 ≥600 dpi（线条图目标 1000）；宽度 ≤160 mm；等比不变形 |
+| 配色 | 全稿用色来自 `palette.py`；彩色 ≤5 种 |
+
+## 12. 正文的「AI 味」：怎么认、怎么改、哪里不能改
 
 完整规则在 `references/anti-ai-academic-zh.md`（含 before/after 与学术豁免清单）。
 这里只留执行要点。

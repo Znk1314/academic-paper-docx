@@ -68,6 +68,14 @@ def cmd_chart(args):
     return make_chart.main([args.spec, "-o", args.output])
 
 
+def cmd_figure(args):
+    import figures
+    argv = [args.spec, "-o", args.output]
+    if args.grayscale:
+        argv.append("--grayscale")
+    return figures.main(argv)
+
+
 def cmd_tone(args):
     import ai_tone_check
     argv = []
@@ -275,10 +283,18 @@ def build_parser():
     p.add_argument("--pages")
     p.set_defaults(func=cmd_preview)
 
-    p = sub.add_parser("chart", help="生成规范配色图表 PNG")
+
+    p = sub.add_parser("figure", help="按国标/期刊惯例渲染插图（毫米版面 + 色板校验）")
     p.add_argument("spec")
     p.add_argument("-o", "--output", required=True)
-    p.set_defaults(func=cmd_chart)
+    p.add_argument("--grayscale", action="store_true", help="同时输出灰度版自检")
+    p.set_defaults(func=cmd_figure)
+
+    p = sub.add_parser("chart", help="旧名，等价于 figure")
+    p.add_argument("spec")
+    p.add_argument("-o", "--output", required=True)
+    p.add_argument("--grayscale", action="store_true")
+    p.set_defaults(func=cmd_figure)
 
     p = sub.add_parser("tone", help="检测正文的「AI 味」（只报警，不改稿）")
     src = p.add_mutually_exclusive_group(required=True)

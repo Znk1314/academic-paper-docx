@@ -43,13 +43,13 @@ def main(argv=None):
     args = ap.parse_args(argv)
 
     model_path = os.path.abspath(args.model)
-    with open(model_path, encoding="utf-8") as fh:
+    with open(model_path, encoding="utf-8-sig") as fh:
         model = json.load(fh)
     model = _resolve_figures(model, os.path.dirname(model_path))
 
     overrides = None
     if args.spec:
-        with open(os.path.abspath(args.spec), encoding="utf-8") as fh:
+        with open(os.path.abspath(args.spec), encoding="utf-8-sig") as fh:
             overrides = json.load(fh)
 
     out = args.output or os.path.splitext(model_path)[0] + ".docx"

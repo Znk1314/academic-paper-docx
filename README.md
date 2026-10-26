@@ -228,7 +228,7 @@ python scripts/apd.py demo -o build/demo
 │  references  │ ───────────► │ omml_latex.py    │          ┌────────────┐
 └──────────────┘              └──────────────────┘          │ report.pdf │
                                                              └─────┬──────┘
-                            ┌──────────────────┐   QA 36 项        │ 逐页渲染
+                            ┌──────────────────┐   QA 42 项        │ 逐页渲染
                             │ qa_check.py      │ ◄─────────────────┤
                             └──────────────────┘                   ▼
                                                         preview/page-*.png
@@ -241,19 +241,23 @@ python scripts/apd.py demo -o build/demo
 academic-paper-docx/
 ├── SKILL.md                  agent 入口（DSH / Codex / Claude 通用）
 ├── scripts/
-│   ├── apd.py                统一 CLI：doctor / build / post / qa / preview / chart / tone / demo
+│   ├── apd.py                统一 CLI：doctor / build / post / qa / preview / figure / tone / demo
 │   ├── docx_builder.py       格式库 + PaperBuilder API（SPEC 在文件顶部）
+│   ├── palette.py            唯一配色源（Okabe-Ito / Tol / Viridis 家族）
+│   ├── figures.py            插图渲染（毫米版面 / 1000 dpi / 矢量 / 灰度自检）
 │   ├── omml_latex.py         LaTeX 子集 → OMML（零外部依赖）
 │   ├── ai_tone_check.py      「AI 味」启发式检测（只报警，不改稿）
 │   ├── build_docx.py         内容模型 JSON → docx
-│   ├── qa_check.py           36 项规范质检（含文风提示项）
-│   ├── make_chart.py         Okabe-Ito 配色图表（Pillow，无需 matplotlib）
+│   ├── qa_check.py           42 项规范质检（含配色/精度/分辨率/文风）
+│   ├── make_chart.py         旧名兼容入口（内部走 figures.py）
 │   ├── render_preview.py     PDF → 逐页 PNG + 空白页/书签体检
 │   ├── postprocess.ps1       Word COM：更新域/目录 + PDF + 固定 print 视图
 │   ├── postprocess.sh        LibreOffice 兜底
 │   └── set_view.py           只改 settings.xml，强制页面视图
 ├── references/
 │   ├── format-spec.md        规范全文（权威）
+│   ├── figure-table-standard.md 图表规范（GB/T 7713.2 核对版）
+│   ├── palette.md            配色规范（色板/色盲/灰度/语义）
 │   ├── anti-ai-academic-zh.md 「AI 味」规则 + 学术豁免清单 + 改写协议
 │   ├── checklist.md          交付前人工核对清单
 │   └── troubleshooting.md    已知坑与修复
@@ -261,10 +265,28 @@ academic-paper-docx/
 │   ├── minimal/content.json  最小示例（一页，无图）
 │   ├── demo/                 完整样例：内容模型 + 图表规格 + 配图
 │   └── python_api.py         不用 JSON、直接写 Python 的示例
-├── tests/                    104 个 pytest 用例
+├── tests/                    133 个 pytest 用例
 ├── docs/                     落地页 + 截图 + 示例 PDF
 └── .github/                  CI / Release / Pages / Issue 模板
 ```
+
+## 图表与配色
+
+出图统一走 `scripts/figures.py`（matplotlib 后端），配色统一读 `scripts/palette.py`：
+
+```bash
+python scripts/apd.py figure work/fig1.json -o work/figs/fig1.png --grayscale
+```
+
+- **毫米版面**：`width_mm: "half"` = 75 mm、`"full"` = 160 mm，按插入后不缩放设计字号线宽。
+- **坐标轴**：`量符号/单位`，符号斜体、单位正体；只留左/下轴线；柱图零基线。
+- **色板**：Okabe-Ito 8 色（色盲安全）；`jet`/`rainbow` 直接报错；顺序/发散自动选板。
+- **冗余编码**：每个系列自动配"颜色 + 线型 + 标记"，黑白打印与色觉障碍都能读。
+- **分辨率**：线条图默认 1000 dpi，可同时输出 PDF 矢量；`--grayscale` 出灰度版自检。
+- **表格**：`columns` 列元信息自动生成"量/单位"表头、按列精度、右对齐、空缺 `—`、`^{a}` 上标。
+
+规范与自查清单：[references/figure-table-standard.md](references/figure-table-standard.md)、
+[references/palette.md](references/palette.md)。
 
 ## 内容模型
 
@@ -332,11 +354,11 @@ python scripts/apd.py qa work/report.docx --spec work/spec.json
     OK   公式编号连续、位于右侧单元格
 ...
 ==============================================================================
-通过 36 项，警告 1 项，失败 0 项
+通过 42 项，警告 1 项，失败 0 项
 结论：符合规范。
 ```
 
-36 项覆盖（加 PDF 体检为 37 项）：页面几何、默认视图、三个核心样式、正文缩进/行距/对齐、列表形态、
+42 项覆盖：页面几何、默认视图、三个核心样式、正文缩进/行距/对齐、列表形态、
 三线表边框与表头、图表题字号/颜色/编号连续性、图片等比与宽度上限、OMML 与编号、
 TOC 域、页眉页脚域、参考文献缩进、交叉引用、字体白名单、空白页、占位符残留、文风提示。
 `--strict` 把 WARN 也当失败，适合 CI 门禁。
@@ -400,7 +422,7 @@ CI：Windows / Linux / macOS × Python 3.9 / 3.12，跑 lint + 单测 + 端到�
 
 - **文档真实性靠人**：脚本不会替你判断数据是否虚构，只用 `[待补充/待核实]` 与"模拟数据"标注来提醒。
 - **Word 是最终裁判**：LibreOffice 对 OMML 与域的支持不完整，交付前建议用 Word 打开核对。
-- **换配色需要一起换图**：图表 PNG 由 `make_chart.py` 按同一套色板生成，改色板要重出图。
+- **换配色改一处**：图与文档都读 `scripts/palette.py`；改色板后重跑 `figures.py` 出图即可。
 - **不自动生成论文内容**：这是排版工具，内容仍然要你（或你的 agent）写。
 - 质检里颜色/字号断言写死默认调色板，换肤后必须带 `--spec`。
 

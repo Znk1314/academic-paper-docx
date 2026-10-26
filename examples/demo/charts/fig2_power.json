@@ -1,11 +1,14 @@
 {
-  "type": "line",
-  "title": "",
-  "xlabel": "采样周期 / s",
-  "ylabel": "平均功耗 / mW",
+  "kind": "line",
+  "xlabel": {"label": "采样周期", "symbol": "t", "unit": "s"},
+  "ylabel": {"label": "平均功耗", "symbol": "P", "unit": "mW"},
   "x": [30, 60, 90, 120],
-  "series": [{"name": "平均功耗", "values": [15.9, 10.4, 8.6, 7.4], "color": "blue"}],
-  "value_labels": true,
+  "series": [{"name": "平均功耗", "values": [15.9, 10.4, 8.6, 7.4]}],
+  "width_mm": 140,
+  "style": "cn",
+  "dpi": 1000,
+  "formats": ["png"],
   "legend": false,
-  "y_min": 0
+  "y_range": [0, 18],
+  "grid": true
 }

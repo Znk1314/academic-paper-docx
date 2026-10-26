@@ -138,7 +138,7 @@ def test_table_header_is_bold_and_repeated(built_doc):
     assert header_tr.find(w("trPr")).find(w("tblHeader")) is not None
     first_cell = header_tr.find(w("tc"))
     bottom = first_cell.find(w("tcPr")).find(w("tcBorders")).find(w("bottom"))
-    assert bottom.get(w("sz")) == "8"
+    assert bottom.get(w("sz")) == "6"
     run = first_cell.find(w("p")).find(w("r"))
     assert run.find(w("rPr")).find(w("b")) is not None
 
@@ -196,8 +196,10 @@ def test_figure_is_proportional_and_kept_with_caption(basic_model, tmp_path):
     doc = Document(path)
     shape = doc.inline_shapes[0]
     assert abs(shape.width.cm - 14.0) < 0.05
-    # 1672 x 941 的原图，等比缩放后高/宽应一致
-    assert abs(shape.height / shape.width - 941 / 1672) < 0.01
+    from PIL import Image
+    with Image.open(DEMO_FIGURE) as img:
+        native = img.width / img.height
+    assert abs(shape.width / shape.height - native) / native < 0.01
     fig_para = next(p for p in doc.paragraphs
                     if p._p.findall(".//" + w("drawing")))
     assert fig_para._p.find(w("pPr")).find(w("keepNext")) is not None

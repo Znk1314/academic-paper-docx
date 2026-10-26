@@ -7,6 +7,34 @@
 
 ### Added
 
+- `scripts/palette.py`：**唯一配色源**（图与 Word 共用）
+  - Okabe-Ito 8 色定性板、Paul Tol bright、Viridis/cividis 顺序板、RdBu/vik 发散板
+  - 感知明度 `lstar()/delta_l()`（CIE L*）、Viénot 色觉模拟、红绿配对判定
+  - `check_series()` 返回 (硬错, 提示)：色板外颜色与红绿色盲下同色为硬错，
+    灰度接近/蓝黄接近/红绿组合为提示（靠线型+标记兜底）
+  - `resolve_cmap()` 直接拒绝 jet/rainbow 等彩虹色谱
+- `scripts/figures.py`：matplotlib 插图后端（取代 Pillow 版）
+  - 毫米版面（半栏 75 / 通栏 160 / 自定义），按插入后不缩放设计字号线宽
+  - 坐标轴 `量符号/单位`（符号斜体、单位正体）、只留左/下轴线、柱图零基线
+  - 自动冗余编码（颜色 + 线型 + 标记）、误差线、显著性括号、(a)(b) 分图号
+  - 默认 1000 dpi + PDF/SVG 矢量；`--grayscale` 输出灰度版自检
+  - 配色不合规直接报错（非警告）
+- `references/figure-table-standard.md`：图表规范核对版（GB/T 7713.2—2022 已核实编号/名称/
+  发布与实施日期；明确区分"国标规定"与"期刊惯例"）
+- `references/palette.md`：配色规范（数据类型→色板、色盲底线、灰度校验、学科语义）
+- `scripts/apd.py figure` 子命令（`chart` 保留为同义旧名）
+- 表格增强：`columns` 列元信息（自动"量/单位"表头、按列精度、数值右对齐）、
+  `caption_en` 中英对照题注、`^{a}` 上标（显著性/脚注）、空缺自动写 `—`
+- `qa_check.py` 新增 4 项：同列小数位一致、文档用色在批准色板内、彩色 ≤5、
+  插图分辨率 ≥600 dpi、插图宽度 ≤160 mm
+
+### Changed
+
+- 三线表**栏目线由 1 pt 改为 0.75 pt**（顶/底线保持 1.5 pt），对齐期刊惯例
+- 图内字号调整为六号（8.5 pt）、轴线 0.7 pt，按 140 mm 插入时不再缩放
+- `make_chart.py` 保留为兼容入口（旧 `width_px`/`y_min` 字段自动映射），内部改走 figures.py
+- 文档版式色改为从 `palette.DOC` 读取（色值不变，来源唯一）
+
 - `references/anti-ai-academic-zh.md`：学术中文的「AI 味」规则
   - 借 blader/humanizer v3.1.0 的根因分类（用姿态/规则/权威/模板代替信息）与 S/A/B 强度分级
   - 借 op7418/Humanizer-zh 的中文分组与"保事实优先"约束，补 `B2.13 装饰性标点`
