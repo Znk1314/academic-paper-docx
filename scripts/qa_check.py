@@ -880,6 +880,31 @@ def check_caption_before_content(doc):
             "；".join(problems[:3]))
 
 
+def check_front_matter_order(doc):
+    """GB/T 7713.1—2025 附录 A 表 A.1：摘要页在目次页之前。
+
+    前置部分顺序为：封面 → 题名页 → 原创性声明 → 使用授权 → 致谢 →
+    **摘要页 → 序言/前言 → 目次页** → 插图和附表清单 …
+    少数学校模板要求目录在前，故判 WARN 而非 FAIL。
+    """
+    def norm(text):
+        return text.replace("\u3000", "").replace(" ", "").strip()
+
+    abs_idx = toc_idx = None
+    for i, para in enumerate(_all_paragraphs(doc)):
+        key = norm(para.text)
+        if abs_idx is None and key in ("摘要", "中文摘要", "摘要页"):
+            abs_idx = i
+        elif toc_idx is None and key in ("目录", "目次", "目次页"):
+            toc_idx = i
+    if toc_idx is None or abs_idx is None:
+        return
+    wrong = toc_idx < abs_idx
+    msg = "目录出现在摘要之前" if wrong else ""
+    warn_if("版式", "前置部分顺序：摘要页在目次页之前（GB/T 7713.1—2025 表 A.1）",
+            wrong, msg + "（与国标相反；若学校模板确有此要求可忽略）" if wrong else "")
+
+
 def check_ai_tone(path):
     """AI 味只做提示：分数是启发式的，不判断作者身份，也绝不判 FAIL。"""
     try:
@@ -989,6 +1014,7 @@ def main(argv=None):
     check_standard_tables(doc)
     check_note_period(doc)
     check_caption_before_content(doc)
+    check_front_matter_order(doc)
     check_table_precision(doc)
     check_palette(doc)
     check_figure_quality(doc)

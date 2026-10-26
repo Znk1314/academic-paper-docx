@@ -1230,10 +1230,9 @@ class PaperBuilder:
                       self._c("ink"))
 
     def add_abstract_en(self, heading, paragraphs, keywords, page_break=False):
-        if page_break:
-            self.add_heading1(heading, page_break=True, front=True)
-        else:
-            self.add_heading2(heading)
+        # GB/T 7713.1—2025 5.2.9：英文摘要宜另起一页，置于中文摘要页之后；
+        # 用一级标题外观但不进目录（front=True），与"摘要"页同级。
+        self.add_heading1(heading, page_break=bool(page_break), front=True)
         for text in paragraphs:
             p = self.doc.add_paragraph()
             para_format(p, align=WD_ALIGN_PARAGRAPH.JUSTIFY, line_spacing=1.5,
@@ -1364,20 +1363,37 @@ class PaperBuilder:
 
         zh = model.get("abstract")
         en = model.get("abstract_en")
-        if zh:
-            self.add_abstract_zh(zh.get("heading", "摘　要"),
-                                 _as_list(zh.get("paragraphs", [])),
-                                 _as_list(zh.get("keywords", [])),
-                                 page_break=True)
-        if en:
-            self.add_abstract_en(en.get("heading", "Abstract"),
-                                 _as_list(en.get("paragraphs", [])),
-                                 _as_list(en.get("keywords", [])),
-                                 page_break=not zh)
+        toc_wanted = bool(model.get("toc", True))
+        # 前置部分顺序。默认"摘要页 → 目次页"，见 GB/T 7713.1—2025 附录 A 表 A.1：
+        # 致谢 → 摘要页 → 序言/前言 → 目次页 → 插图和附表清单。
+        # 少数学校模板要求"目录在前"，用 "front_order": "toc-first" 切换。
+        toc_first = str(model.get("front_order", "")).strip().lower().replace("_", "-") \
+            in ("toc-first", "tocfirst", "目录在前", "目录优先")
 
-        if model.get("toc", True):
-            self.add_toc(model.get("toc_title", "目　录"),
-                         model.get("toc_levels", "1-1"))
+        steps = []
+        if toc_wanted and toc_first:
+            steps.append("toc")
+        if zh:
+            steps.append("zh")
+        if en:
+            steps.append("en")
+        if toc_wanted and not toc_first:
+            steps.append("toc")
+
+        for step in steps:
+            if step == "zh":
+                self.add_abstract_zh(zh.get("heading", "摘　要"),
+                                     _as_list(zh.get("paragraphs", [])),
+                                     _as_list(zh.get("keywords", [])),
+                                     page_break=True)
+            elif step == "en":
+                self.add_abstract_en(en.get("heading", "Abstract"),
+                                     _as_list(en.get("paragraphs", [])),
+                                     _as_list(en.get("keywords", [])),
+                                     page_break=True)
+            else:
+                self.add_toc(model.get("toc_title", "目　录"),
+                             model.get("toc_levels", "1-1"))
 
         first_h1 = True
         for item in model.get("sections", []):

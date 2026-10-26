@@ -406,3 +406,47 @@ def test_figure_font_shrinks_when_inserted_narrow(built, tmp_path):
     b = built[0]
     b.add_figure(png, caption="缩太小", width_cm=7.5)
     assert any("pt" in w and "低于" in w for w in b.warnings)
+
+
+# ---------------------------------------------------------------- 前置部分顺序
+
+def _front_titles(doc):
+    out = []
+    for para in doc.paragraphs:
+        t = para.text.replace("\u3000", "").strip()
+        if t in ("摘要", "目录"):
+            out.append(t)
+        elif t.startswith("Abstract"):
+            out.append("Abstract")
+    return out
+
+
+def test_default_front_order_is_abstract_before_toc(basic_model, tmp_path):
+    """GB/T 7713.1—2025 附录 A 表 A.1：摘要页在目次页之前。"""
+    model = dict(basic_model)
+    model["abstract_en"] = {"paragraphs": ["English abstract for ordering test."],
+                            "keywords": ["kw"]}
+    _, path = db.build_from_model(model, str(tmp_path / "order.docx"))
+    seq = _front_titles(Document(path))
+    assert seq[:3] == ["摘要", "Abstract", "目录"], seq
+
+
+def test_front_order_can_put_toc_first(basic_model, tmp_path):
+    """少数学校模板要求目录在前：front_order = "toc-first"。"""
+    model = dict(basic_model)
+    model["abstract_en"] = {"paragraphs": ["English abstract."], "keywords": ["kw"]}
+    model["front_order"] = "toc-first"
+    _, path = db.build_from_model(model, str(tmp_path / "tocfirst.docx"))
+    seq = _front_titles(Document(path))
+    assert seq[:3] == ["目录", "摘要", "Abstract"], seq
+
+
+def test_english_abstract_starts_on_new_page(basic_model, tmp_path):
+    """5.2.9：英文摘要宜另起一页，置于中文摘要页之后。"""
+    model = dict(basic_model)
+    model["abstract_en"] = {"paragraphs": ["English abstract."], "keywords": ["kw"]}
+    _, path = db.build_from_model(model, str(tmp_path / "en.docx"))
+    doc = Document(path)
+    abs_para = next(p for p in doc.paragraphs if p.text.strip().startswith("Abstract"))
+    pPr = abs_para._p.find(w("pPr"))
+    assert pPr is not None and pPr.find(w("pageBreakBefore")) is not None

@@ -258,6 +258,24 @@ academic-paper-docx/
 > 改了 `scripts/` 里的格式逻辑后，务必跑 `python -m pytest -q` 与
 > `python scripts/apd.py qa` 验证，不要只靠肉眼。
 
+## 10.5 前置部分顺序：摘要在前、目录在后
+
+**默认顺序：封面 → 摘要（中文）→ Abstract → 目录 → 正文。**
+
+依据 **GB/T 7713.1—2025《信息与文献 编写规则 第 1 部分：学位论文》附录 A 表 A.1**：
+致谢 → **摘要页** → 序言/前言 → **目次页** → 插图和附表清单；
+5.2.9 还要求**英文摘要另起一页**置于中文摘要之后。
+中科院、武汉科技大学（本科毕业设计）、华东师范大学的规范与此一致。
+
+少数学校模板要求"目录在前"，在内容模型里加一行即可切换：
+
+```jsonc
+{ "front_order": "toc-first" }
+```
+
+`apd qa` 会检查该顺序（判 WARN，因为校规可能不同）。
+完整证据与原文摘录见 `references/front-matter-order.md`。
+
 ## 11. 图表与配色（GB/T 7713.2 + 期刊惯例）
 
 完整规范：`references/figure-table-standard.md`、`references/palette.md`。
