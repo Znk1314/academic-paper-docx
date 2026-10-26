@@ -288,7 +288,6 @@ def cmd_doctor(args):
 
 def cmd_demo(args):
     import build_docx
-    import make_chart
 
     out = os.path.abspath(args.out)
     demo_dir = os.path.join(REPO, "examples", "demo")
@@ -300,7 +299,12 @@ def cmd_demo(args):
             name = json.load(fh).get("output") or os.path.splitext(os.path.basename(spec))[0]
         target = os.path.join(demo_dir, "figs", name + ".png")
         print("图表 → %s" % os.path.relpath(target, REPO))
-        make_chart.main([spec, "-o", target])
+        try:
+            import make_chart
+            make_chart.main([spec, "-o", target])
+        except ImportError as exc:
+            print("  跳过出图（%s）；仓库自带示例图片可直接使用。" % exc)
+            break
 
     docx = os.path.join(out, "demo_report.docx")
     print("文档 → %s" % docx)
@@ -317,8 +321,11 @@ def cmd_demo(args):
     qa_rc = cmd_qa(argparse.Namespace(docx=docx, pdf=pdf if os.path.exists(pdf) else None,
                                       spec=None, strict=False))
     if os.path.exists(pdf):
-        cmd_preview(argparse.Namespace(pdf=pdf, out=os.path.join(out, "preview"),
-                                       dpi=110, pages=None))
+        try:
+            cmd_preview(argparse.Namespace(pdf=pdf, out=os.path.join(out, "preview"),
+                                           dpi=110, pages=None))
+        except SystemExit as exc:        # 缺 PyMuPDF 时跳过预览，不影响 docx/PDF
+            print("  跳过预览（exit %s）。" % exc.code)
     return qa_rc
 
 
