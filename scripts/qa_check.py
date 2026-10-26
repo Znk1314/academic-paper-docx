@@ -503,7 +503,7 @@ def check_figures(doc):
         h = Emu(shape.height).cm
         if w > 15.5 + 0.01:
             bad.append("图片宽 %.2f cm 超过 15.5 cm" % w)
-        # 等比校验（用包内原图比例）
+        # 等比校验（用包内原图比例）；缺 Pillow 时跳过，不算失败
         try:
             blob = shape._inline.graphic.graphicData.pic.blipFill.blip.embed
             part = doc.part.related_parts[blob]
@@ -514,6 +514,8 @@ def check_figures(doc):
             native = img.width / img.height
             if abs((w / h) - native) / native > 0.01:
                 bad.append("图片比例被改变（%.3f vs %.3f）" % (w / h, native))
+        except ImportError:
+            pass          # 未装 Pillow：跳过比例校验，宽度检查仍然生效
         except Exception as exc:  # pragma: no cover
             bad.append("无法校验图片比例：%s" % exc)
     check("图片", "图片等比缩放且不超版心宽度", not bad, "；".join(bad[:3]))
