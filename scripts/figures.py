@@ -42,14 +42,20 @@ if HERE not in sys.path:
 import palette  # noqa: E402
 
 MM_PER_INCH = 25.4
+_FONT_WARNED = False
 ASPECT = {"line": 0.62, "bar": 0.66, "grouped_bar": 0.70,
           "scatter": 0.62, "errorbar": 0.62, "box": 0.55, "heatmap": 0.78}
 
 
 def _setup_fonts() -> str:
-    """挑选可用的中文字体；找不到就退回 DejaVu（数字仍正常，中文会缺字）。"""
+    """挑选可用的中文字体；可用 APD_CJK_FONT 指定。找不到退回 DejaVu 并提示一次。"""
     available = {f.name for f in font_manager.fontManager.ttflist}
-    chosen = next((n for n in palette.FONTS["cjk"] if n in available), None)
+    override = os.environ.get("APD_CJK_FONT", "").strip()
+    if override and override not in available:
+        print("提示：APD_CJK_FONT=%s 不在本机字体列表里，改用自动探测" % override,
+              file=sys.stderr)
+        override = ""
+    chosen = override or next((n for n in palette.FONTS["cjk"] if n in available), None)
     family = [chosen] if chosen else []
     family += [n for n in palette.FONTS["latin"] if n in available] or ["DejaVu Sans"]
     plt.rcParams.update({
@@ -183,9 +189,14 @@ def render(spec: dict, out_path: str, grayscale: bool = False) -> str:
         "ytick.major.size": 3.0,
     })
     font_used = _setup_fonts()
-    if font_used == "DejaVu Sans" and spec.get("strict_font", False):
-        raise RuntimeError("未找到中文字体，图内中文会缺字；请安装" +
-                           palette.FONTS["cjk"][0])
+    if font_used == "DejaVu Sans":
+        global _FONT_WARNED
+        if not _FONT_WARNED:
+            _FONT_WARNED = True
+            print("提示：未找到中文字体，图内中文会显示方框。可安装 Noto Sans CJK，"
+                  "或设置环境变量 APD_CJK_FONT=<字体名>", file=sys.stderr)
+        if spec.get("strict_font", False):
+            raise RuntimeError("未找到中文字体（strict_font=true）")
 
     fig, ax = plt.subplots(figsize=(width_mm / MM_PER_INCH, height_mm / MM_PER_INCH))
     fig.set_layout_engine("constrained")

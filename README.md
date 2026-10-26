@@ -54,6 +54,29 @@
 折线（3 系列 × 7 点、SD 误差线、`*`/`**` 显著性）、分组柱状（3 系列 × 4 组）、
 散点（2 系列 × 12 点）、箱线（4 组）、热图（cividis 顺序色板）。
 
+## 环境要求（先看这张表）
+
+**只有 python-docx 与 lxml 是硬性依赖**，其余能力可缺，缺了只少一块功能、不会报错退出：
+
+| 能力 | 需要什么 | 缺了会怎样 |
+|---|---|---|
+| 生成 .docx（核心） | Python 3.9+、`python-docx`、`lxml` | —— 必需 |
+| 出图（`apd figure`） | `matplotlib`、`numpy` | 跳过出图，docx 里可以只放已有图片 |
+| 图片分辨率质检 | `Pillow` | 少一项检查 |
+| 中文图内文字 | 任一中文字体（雅黑/黑体/Noto Sans CJK/萍方/文泉驿） | 中文显示方框，可用 `APD_CJK_FONT=<字体名>` 指定 |
+| 自动更新目录 + 导 PDF | Microsoft Word（Windows）或 LibreOffice | docx 照常生成；打开后按 F9 手动更新目录即可 |
+| PDF 逐页预览 / 体检 | `PyMuPDF` | 跳过该功能 |
+| 运行测试 | `pytest`、`ruff` | —— 仅开发需要 |
+
+平台：Windows / macOS / Linux 都能生成 docx 与出图；**Word 不是必需项**
+（Linux/macOS 用 LibreOffice 或在线打开 Word 也行，目录手动更新一次）。
+
+自检：
+
+```bash
+python scripts/apd.py doctor
+```
+
 ## 安装
 
 > **一句话：把整个仓库文件夹（保持名字 `academic-paper-docx`）放进 agent 的 skills 目录，就装好了。**

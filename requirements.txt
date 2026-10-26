@@ -1,6 +1,9 @@
+# 运行时依赖 —— 装完即可生成 docx 与出图
 python-docx>=1.1.0
 lxml>=5.0
-Pillow>=9.0
-matplotlib>=3.6          # 插图渲染（figures.py）
+matplotlib>=3.6          # 出图（figures.py）；纯排版可省，但 apd figure/qa 的图片检查需要
 numpy>=1.21              # matplotlib 依赖，figures.py 直接使用
-PyMuPDF>=1.23            # 仅 render_preview.py / PDF 体检需要
+Pillow>=9.0              # 图片分辨率校验（qa_check）
+
+# 可选：PDF 预览与逐页体检（apd preview）。缺失时只跳过该功能，不影响生成 docx。
+PyMuPDF>=1.23

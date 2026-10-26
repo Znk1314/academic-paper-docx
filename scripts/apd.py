@@ -179,6 +179,20 @@ def cmd_doctor(args):
         import PIL
         return "Pillow %s" % PIL.__version__
 
+    def matplotlib_():
+        import matplotlib
+        return "matplotlib %s" % matplotlib.__version__
+
+    def numpy_():
+        import numpy
+        return "numpy %s" % numpy.__version__
+
+    def python_version():
+        major, minor = sys.version_info[:2]
+        if (major, minor) < (3, 9):
+            raise RuntimeError("需要 Python 3.9+，当前 %d.%d" % (major, minor))
+        return "Python %d.%d.%d" % sys.version_info[:3]
+
     def pymupdf():
         try:
             import pymupdf
@@ -212,19 +226,24 @@ def cmd_doctor(args):
         raise RuntimeError("未找到 PowerShell")
 
     def cjk_font():
-        for path in (r"C:\Windows\Fonts\msyh.ttc", r"C:\Windows\Fonts\simhei.ttf",
-                     "/System/Library/Fonts/PingFang.ttc",
-                     "/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc",
-                     "/usr/share/fonts/truetype/wqy/wqy-zenhei.ttc"):
-            if os.path.exists(path):
-                return path
-        raise RuntimeError("无中文字体，make_chart.py 的中文标签会显示方框")
+        import palette
+        from matplotlib import font_manager
+        wanted = [os.environ.get("APD_CJK_FONT", "")] + palette.FONTS["cjk"]
+        names = {f.name for f in font_manager.fontManager.ttflist}
+        for name in wanted:
+            if name and name in names:
+                return name
+        raise RuntimeError("未找到中文字体（图表中文会显示方框）；"
+                           "可设置环境变量 APD_CJK_FONT 指定字体名")
 
+    probe("Python 版本", python_version, critical=True)
     probe("python-docx", python_docx, critical=True)
     probe("lxml", lxml, critical=True)
-    probe("Pillow（生成图表）", pillow)
-    probe("PyMuPDF（PDF 预览/体检）", pymupdf)
+    probe("matplotlib（出图）", matplotlib_, critical=True)
+    probe("numpy（出图）", numpy_, critical=True)
+    probe("Pillow（图片校验）", pillow, critical=True)
     probe("中文字体（图表标签）", cjk_font)
+    probe("PyMuPDF（PDF 预览/体检）", pymupdf)
     probe("PowerShell", powershell)
     probe("Microsoft Word（更新目录/导 PDF）", word)
     probe("LibreOffice（无 Word 时的兜底）", soffice)
@@ -240,7 +259,18 @@ def cmd_doctor(args):
     if missing_critical:
         print("缺少必需依赖：python -m pip install -r requirements.txt")
         return 1
-    print("必需依赖齐全。Windows + Word 可获得完整的目录更新与 PDF 导出能力。")
+
+    optional = [name for state, name, _d, critical in checks
+                if state != "OK" and not critical]
+    print("最小可用：生成 docx + 质检（python-docx / lxml 已就绪）")
+    print("出图可用：matplotlib + numpy 已就绪（无中文字体时英文/数字正常，中文显示方框）")
+    if optional:
+        print("可选能力缺失：%s" % "、".join(optional))
+        print("  · 无 Word/LibreOffice：不影响生成 docx，只是不能自动更新目录与导出 PDF")
+        print("  · 无 PyMuPDF：跳过 PDF 预览与空白页体检")
+    else:
+        print("全部能力就绪（含目录更新、PDF 导出、逐页预览）。")
+    print("提示：Word 不是必需项；用 LibreOffice 或在线打开也能看到目录（需手动更新域）。")
     return 0
 
 
