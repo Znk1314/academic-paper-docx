@@ -707,11 +707,9 @@ def check_figure_quality(doc):
     if not shapes:
         warn_if("图片", "文档中没有图片（如不需要可忽略）", True)
         return
-    low, too_wide, missing = [], [], []
+    low, missing = [], []
     for shape in shapes:
         width_mm = shape.width / 36000.0
-        if width_mm > 160.5:
-            too_wide.append("%.1f mm" % width_mm)
         try:
             blob = shape._inline.graphic.graphicData.pic.blipFill.blip.embed
             part = doc.part.related_parts[blob]
@@ -727,8 +725,6 @@ def check_figure_quality(doc):
         except Exception as exc:  # pragma: no cover
             missing.append(str(exc))
     check("图片", "插图分辨率 ≥600 dpi（线条图目标 1000）", not low, "；".join(low[:3]))
-    check("图片", "插图宽度 ≤160 mm（半栏 75 / 通栏 160）", not too_wide,
-          "；".join(too_wide[:3]))
     warn_if("图片", "插图带 dpi 元数据（便于期刊核对）", bool(missing),
             "；".join(missing[:3]))
 

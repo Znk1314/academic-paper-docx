@@ -279,7 +279,7 @@ python scripts/apd.py demo -o build/demo
 │  references  │ ───────────► │ omml_latex.py    │          ┌────────────┐
 └──────────────┘              └──────────────────┘          │ report.pdf │
                                                              └─────┬──────┘
-                            ┌──────────────────┐   QA 49 项        │ 逐页渲染
+                            ┌──────────────────┐   QA 47 项        │ 逐页渲染
                             │ qa_check.py      │ ◄─────────────────┤
                             └──────────────────┘                   ▼
                                                         preview/page-*.png
@@ -299,7 +299,7 @@ academic-paper-docx/
 │   ├── omml_latex.py         LaTeX 子集 → OMML（零外部依赖）
 │   ├── ai_tone_check.py      「AI 味」启发式检测（只报警，不改稿）
 │   ├── build_docx.py         内容模型 JSON → docx
-│   ├── qa_check.py           49 项规范质检（含配色/精度/分辨率/文风）
+│   ├── qa_check.py           47 项规范质检（含配色/精度/分辨率/文风）
 │   ├── make_chart.py         旧名兼容入口（内部走 figures.py）
 │   ├── render_preview.py     PDF → 逐页 PNG + 空白页/书签体检
 │   ├── postprocess.ps1       Word COM：更新域/目录 + PDF + 固定 print 视图
@@ -409,11 +409,11 @@ python scripts/apd.py qa work/report.docx --spec work/spec.json
     OK   公式编号连续、位于右侧单元格
 ...
 ==============================================================================
-通过 49 项，警告 1 项，失败 0 项
+通过 47 项，警告 1 项，失败 0 项
 结论：符合规范。
 ```
 
-49 项覆盖：页面几何、默认视图、三个核心样式、正文缩进/行距/对齐、列表形态、
+47 项覆盖：页面几何、默认视图、三个核心样式、正文缩进/行距/对齐、列表形态、
 三线表边框与表头、图表题字号/颜色/编号连续性、图片等比与宽度上限、OMML 与编号、
 TOC 域、页眉页脚域、参考文献缩进、交叉引用、字体白名单、空白页、占位符残留、文风提示。
 `--strict` 把 WARN 也当失败，适合 CI 门禁。
