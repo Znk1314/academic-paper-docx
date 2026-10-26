@@ -147,3 +147,26 @@ def test_cli_renders_file(tmp_path, capsys):
     out = tmp_path / "cli.png"
     assert figures.main([str(spec_path), "-o", str(out)]) == 0
     assert out.exists()
+
+def test_theme_palette_drives_series_colors(tmp_path):
+    """spec["palette"] 用色卡的安全子集，不再用 Okabe-Ito。"""
+    spec = _spec(palette="rose6", series=[{"name": "A", "values": [1, 2, 3]},
+                                         {"name": "B", "values": [3, 2, 1]},
+                                         {"name": "C", "values": [2, 3, 1]}])
+    out = _render(tmp_path, spec)
+    assert out.exists()
+    colors = [s["color"] for s in figures._series(spec)]
+    assert set(colors) <= set(palette.THEMES["rose6"]["colors"])
+
+
+def test_explicit_color_beats_palette(tmp_path):
+    spec = _spec(palette="rose6", series=[{"name": "A", "values": [1, 2], "color": "#0072B2"},
+                                          {"name": "B", "values": [2, 1]}])
+    colors = [s["color"] for s in figures._series(spec)]
+    assert colors[0] == "#0072B2"
+
+
+def test_unknown_palette_rejected(tmp_path):
+    spec = _spec(palette="不存在的色卡", series=[{"name": "A", "values": [1, 2]}])
+    with pytest.raises(ValueError):
+        figures._series(spec)

@@ -282,6 +282,16 @@ python <SKILL_DIR>/scripts/figures.py work/fig1.json -o work/figs/fig1.png --gra
 }
 ```
 
+配色可选"主题色卡"（9 套设计稿配色，自动取安全子集并打印实测判据）：
+
+```bash
+python <SKILL_DIR>/scripts/apd.py palette            # 列出全部色卡与 3/4/5 类判定
+python <SKILL_DIR>/scripts/figures.py spec.json -o f.png --palette rose6
+```
+
+> 色卡是"整体协调"的设计稿，不等于"N 类分类色板"。同色系深浅当分类色会糊，
+> 本 skill 会用 `safe_subset()` 自动挑可区分的子集，并给出 CVD/灰度实测值。
+
 出图时的硬约束（违反会报错，不是建议）：
 - 颜色只能取自 `palette.SERIES`（Okabe-Ito）；红绿色盲下同色的组合直接拒绝。
 - 定量数据禁用 `jet`/`rainbow`。

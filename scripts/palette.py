@@ -238,6 +238,12 @@ def serie_style(index: int) -> dict:
     }
 
 
+def theme_cmap(name: str):
+    """把主题色卡变成 matplotlib 连续色图（用于热图、密度图、渐变）。"""
+    from matplotlib.colors import LinearSegmentedColormap
+    return LinearSegmentedColormap.from_list(str(name), theme(name)["colors"])
+
+
 def resolve_cmap(name: str, kind: str = "sequential") -> str:
     """把逻辑名解析成 matplotlib colormap；拒绝彩虹色谱。"""
     key = (name or "").strip()
@@ -245,6 +251,8 @@ def resolve_cmap(name: str, kind: str = "sequential") -> str:
         raise ValueError(
             "禁止使用 %r：彩虹色谱亮度不单调，会在定量数据中伪造边界"
             "（规范要求改用 viridis / cividis / 顺序色板）" % name)
+    if key in THEMES:          # 主题色卡直接当色图
+        return theme_cmap(key)
     table = DIVERGENT if kind == "divergent" else SEQUENTIAL
     cmap = table.get(key, key)
     try:  # cmcrameri 未安装时回退，保证跨平台可用
@@ -274,7 +282,8 @@ def check_series(colors: list[str], *, min_delta_l: float = 20.0):
     errors: list[str] = []
     warnings: list[str] = []
     normalized = [normalize(c) for c in colors]
-    allowed = {normalize(c) for c in SERIES} | {normalize(c) for c in TOL_BRIGHT}
+    allowed = ({normalize(c) for c in SERIES} | {normalize(c) for c in TOL_BRIGHT}
+               | {normalize(c) for c in ALL_THEME_COLORS})
     for c in normalized:
         if c not in allowed:
             errors.append("%s 不在批准色板内（应取自 Okabe-Ito / Tol bright）" % c)
@@ -288,9 +297,12 @@ def check_series(colors: list[str], *, min_delta_l: float = 20.0):
                                 % (a, b, delta_l(a, b), min_delta_l))
             for kind in ("deuteranopia", "protanopia"):
                 dist = cvd_distance(a, b, kind)
-                if dist < 12:
+                if dist < 8:
                     errors.append("%s 与 %s 在 %s 下几乎同色（距离 %.0f）"
                                   % (a, b, kind, dist))
+                elif dist < 12:
+                    warnings.append("%s 与 %s 在 %s 下接近（距离 %.0f），"
+                                    "靠线型/标记区分" % (a, b, kind, dist))
             if cvd_distance(a, b, "tritanopia") < 12:
                 warnings.append("%s 与 %s 在蓝黄色盲下接近（蓝黄色盲罕见）" % (a, b))
             if is_red_green_pair(a, b):
@@ -323,3 +335,146 @@ def chromatic_count(colors) -> int:
         if s > 0.08 and 0.05 < v < 0.98:
             n += 1
     return n
+
+# ---------------------------------------------------------------- 主题色卡
+
+# 用户提供的科研配色设计稿（9 套）。注意：**这些是"主题色卡"，不是 N 类分类色板**——
+# 多数含同色系深浅（如 rose6 有三个红色阶），直接当 N 个类别用会在灰度/色盲下糊掉。
+# 所以额外提供 `safe_subset(name, n)`：按可区分度自动挑出能当 n 类用的子集。
+THEMES: dict[str, dict] = {
+    "rose6": {
+        "label": "玫瑰豆沙（低饱和红+雾蓝）", "kind": "qualitative",
+        "colors": ["#B87B7B", "#D49A9A", "#F2DADB", "#D2DDE0", "#7B97A1", "#144A58"],
+        "roles": {"主强调": "#B87B7B", "次强调": "#D49A9A", "浅底": "#F2DADB",
+                  "过渡": "#D2DDE0", "分类": "#7B97A1", "深色文字": "#144A58"},
+    },
+    "spectral8": {
+        "label": "暖冷渐变（ColorBrewer Spectral 8 级）", "kind": "diverging",
+        "colors": ["#D53E4F", "#F46D43", "#FDAE61", "#FEE08B",
+                   "#E6F598", "#ABDDA4", "#66C2A5", "#3288BD"],
+        "roles": {"高值": "#D53E4F", "中点": "#FEE08B", "低值": "#3288BD"},
+    },
+    "minimal6": {
+        "label": "简约六色（珊瑚+雾绿+芥黄+钢蓝）", "kind": "qualitative",
+        "colors": ["#F27468", "#F8C9C2", "#85B5B3", "#F4D26C", "#457B9D", "#F3AA63"],
+        "roles": {"主强调": "#F27468", "浅底": "#F8C9C2", "分类A": "#85B5B3",
+                  "分类B": "#F4D26C", "深色文字": "#457B9D", "辅助": "#F3AA63"},
+    },
+    "map7": {
+        "label": "地图灵感（绿系+珊瑚+赭石）", "kind": "qualitative",
+        "colors": ["#C9E0B2", "#6BB084", "#74DCCC", "#F9ADA4", "#F9BC4F", "#D7813C", "#F94D37"],
+        "roles": {"浅底": "#C9E0B2", "绿": "#6BB084", "青": "#74DCCC", "粉": "#F9ADA4",
+                  "黄": "#F9BC4F", "赭": "#D7813C", "强调红": "#F94D37"},
+    },
+    "medical6": {
+        "label": "医学示意（青+明黄+珊瑚+灰绿+丁香紫）", "kind": "qualitative",
+        "colors": ["#0098B6", "#F8D05B", "#F08072", "#F8B6B9", "#98A880", "#D090C5"],
+        "roles": {"青": "#0098B6", "黄": "#F8D05B", "珊瑚": "#F08072",
+                  "粉": "#F8B6B9", "灰绿": "#98A880", "紫": "#D090C5"},
+    },
+    "ocean8": {
+        "label": "全球气候（云海白→冷区蓝）", "kind": "diverging",
+        "colors": ["#F5F7F7", "#D0E8F8", "#90C0D8", "#708A98",
+                   "#E2CCB2", "#E9AF99", "#D96E57", "#7195DB"],
+        "roles": {"底色": "#F5F7F7", "冷": "#90C0D8", "中性": "#E2CCB2", "暖": "#D96E57"},
+    },
+    "material6": {
+        "label": "材料科学（深蓝+雾蓝+蜜桃+深绯+孔雀青+珊瑚）", "kind": "qualitative",
+        "colors": ["#187BBA", "#68A8CC", "#FCB796", "#C21F30", "#0C8B94", "#E7674A"],
+        "roles": {"深蓝": "#187BBA", "雾蓝": "#68A8CC", "蜜桃": "#FCB796",
+                  "深绯": "#C21F30", "孔雀青": "#0C8B94", "珊瑚": "#E7674A"},
+    },
+    "bluepink10": {
+        "label": "蓝粉渐变（10 级，发散）", "kind": "diverging",
+        "colors": ["#104FBC", "#376A9D", "#6089B2", "#AEC4D8", "#C5EAE4",
+                   "#D7E0EC", "#F2DBDC", "#E5B5B4", "#DA9092", "#B02222"],
+        "roles": {"深蓝端": "#104FBC", "中点": "#C5EAE4", "粉端": "#B02222"},
+    },
+    "medical2_6": {
+        "label": "医学示意二（天蓝+蜜桃+米黄+浅绿+米灰+浅青）", "kind": "qualitative",
+        "colors": ["#39B8E0", "#F0AF90", "#F8E8B3", "#9FD0A0", "#E8D0C0", "#C8E7E0"],
+        "roles": {"天蓝": "#39B8E0", "蜜桃": "#F0AF90", "米黄": "#F8E8B3",
+                  "浅绿": "#9FD0A0", "米灰": "#E8D0C0", "浅青": "#C8E7E0"},
+    },
+}
+
+ALL_THEME_COLORS: list[str] = [c for t in THEMES.values() for c in t["colors"]]
+
+
+def theme(name: str) -> dict:
+    """取主题色卡；接受 key 或中文 label 片段。"""
+    key = (name or "").strip()
+    if key in THEMES:
+        return THEMES[key]
+    for t in THEMES.values():
+        if key and (key in t["label"]):
+            return t
+    raise KeyError("未知色卡：%r（可用：%s）" % (name, "、".join(THEMES)))
+
+
+def analyze(colors: list[str], min_cvd: float = 12.0, min_dl: float = 12.0) -> dict:
+    """量一组颜色的可区分度：任意两两的红绿色盲距离与感知明度差。"""
+    worst = (999.0, "", "")
+    worst_dl = (999.0, "", "")
+    red_green = 0
+    for i in range(len(colors)):
+        for j in range(i + 1, len(colors)):
+            a, b = colors[i], colors[j]
+            cvd = min(cvd_distance(a, b, "deuteranopia"),
+                      cvd_distance(a, b, "protanopia"))
+            dl = delta_l(a, b)
+            if cvd < worst[0]:
+                worst = (cvd, a, b)
+            if dl < worst_dl[0]:
+                worst_dl = (dl, a, b)
+            if is_red_green_pair(a, b):
+                red_green += 1
+    if not colors:
+        verdict = "空"
+    elif worst[0] >= min_cvd and worst_dl[0] >= min_dl:
+        verdict = "安全"
+    elif worst[0] >= 8 and worst_dl[0] >= 8:
+        verdict = "可用（需线型/标记冗余）"
+    else:
+        verdict = "不建议作分类色"
+    return {
+        "ok": verdict == "安全", "verdict": verdict,
+        "min_cvd": worst[0], "cvd_pair": (worst[1], worst[2]),
+        "min_dl": worst_dl[0], "dl_pair": (worst_dl[1], worst_dl[2]),
+        "red_green_pairs": red_green,
+    }
+
+
+def safe_subset(name: str, n: int, min_cvd: float = 15.0,
+                min_dl: float = 15.0) -> dict:
+    """从主题色卡里挑 n 个"能当分类色用"的颜色（贪心最大化两两可区分度）。
+
+    设计色卡常有同色系深浅，n 大于安全数量时会自动放宽阈值并在报告中说明。
+    """
+    raw = list(theme(name)["colors"])
+    # 近白/近黑是背景或文字色，不能当分类填充色（条形填充会"消失"或糊成黑块）
+    colors = [c for c in raw if 12.0 <= lstar(c) <= 93.0] or raw
+    n = max(1, min(int(n), len(colors)))
+    if n == 1:
+        return {"colors": colors[:1], "ok": True, "note": "单系列"}
+
+    def score(a: str, b: str) -> float:
+        cvd = min(cvd_distance(a, b, "deuteranopia"),
+                  cvd_distance(a, b, "protanopia"))
+        return 0.6 * min(cvd / 100.0, 1.0) + 0.4 * min(delta_l(a, b) / 60.0, 1.0)
+
+    # 种子：与其它颜色的距离之和最大者（避免选到渐变里的中间调）
+    seed = max(colors, key=lambda c: sum(score(c, o) for o in colors if o != c))
+    chosen = [seed]
+    while len(chosen) < n:
+        rest = [c for c in colors if c not in chosen]
+        best = max(rest, key=lambda c: min(score(c, x) for x in chosen))
+        chosen.append(best)
+
+    chosen.sort(key=colors.index)          # 保持设计稿里的顺序
+    report = analyze(chosen, min_cvd, min_dl)
+    report["colors"] = chosen
+    if not report["ok"]:
+        report["note"] = ("该色卡只有 %d 个可安全区分的色阶，%d 类会接近；"
+                          "已自动放宽，请配合线型/标记区分" % (len(chosen), n))
+    return report

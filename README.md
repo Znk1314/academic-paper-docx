@@ -290,7 +290,11 @@ python scripts/apd.py figure work/fig1.json -o work/figs/fig1.png --grayscale
 
 - **毫米版面**：`width_mm: "half"` = 75 mm、`"full"` = 160 mm，按插入后不缩放设计字号线宽。
 - **坐标轴**：`量符号/单位`，符号斜体、单位正体；只留左/下轴线；柱图零基线。
-- **色板**：Okabe-Ito 8 色（色盲安全）；`jet`/`rainbow` 直接报错；顺序/发散自动选板。
+- **色板**：默认 Okabe-Ito 8 色（色盲安全）；`jet`/`rainbow` 直接报错；顺序/发散自动选板。
+  另有 **9 套主题色卡**（`rose6` / `spectral8` / `minimal6` / `map7` / `medical6` /
+  `ocean8` / `material6` / `bluepink10` / `medical2_6`），`--palette` 指定后自动取
+  "安全子集"并打印红绿色盲距离与灰度差；色卡也可直接当热图色图用。
+  `python scripts/apd.py palette` 查看判定。
 - **冗余编码**：每个系列自动配"颜色 + 线型 + 标记"，黑白打印与色觉障碍都能读。
 - **分辨率**：线条图默认 1000 dpi，可同时输出 PDF 矢量；`--grayscale` 出灰度版自检。
 - **表格**：`columns` 列元信息自动生成"量/单位"表头、按列精度、右对齐、空缺 `—`、`^{a}` 上标。

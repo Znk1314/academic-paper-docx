@@ -110,14 +110,30 @@ def _width_mm(spec: dict) -> float:
 
 
 def _series(spec: dict) -> list[dict]:
+    """系列色：优先用显式 color；否则用 palette 主题色卡的安全子集；再否则 Okabe-Ito。"""
+    raw = spec.get("series") or []
+    preset: list[str] = []
+    theme_name = spec.get("palette")
+    if theme_name:
+        try:
+            preset = palette.safe_subset(str(theme_name), len(raw))["colors"]
+        except KeyError as exc:
+            raise ValueError(str(exc)) from exc
+
     out = []
-    for i, s in enumerate(spec.get("series") or []):
+    for i, s in enumerate(raw):
         style = palette.serie_style(i)
+        if s.get("color"):
+            color = s["color"]
+        elif preset:
+            color = preset[i % len(preset)]
+        else:
+            color = style["color"]
         out.append({
             "name": str(s.get("name", "系列%d" % (i + 1))),
             "values": list(s.get("values") or []),
             "error": list(s.get("error") or []),
-            "color": palette.normalize(s.get("color") or style["color"]),
+            "color": palette.normalize(color),
             "linestyle": s.get("linestyle") or style["linestyle"],
             "marker": s.get("marker") or style["marker"],
         })
@@ -283,14 +299,15 @@ def _plot_lines(ax, series, xs, kind, style, spec) -> None:
 def _plot_bars(ax, series, categories, style, spec) -> None:
     n = max(len(categories), 1)
     groups = max(len(series), 1)
-    slot = 1.0 / n
-    bar_w = slot * 0.66 / groups
+    # 每个类别占 1 个坐标单位，组宽取 0.8 个类别位，组内均分
+    group_w = 0.8
+    bar_w = group_w / groups
     import numpy as np
     idx = np.arange(n)
     for si, s in enumerate(series):
         offsets = idx + (si - (groups - 1) / 2) * bar_w
         values = s["values"][:n]
-        ax.bar(offsets, values, width=bar_w * 0.9, color=s["color"],
+        ax.bar(offsets, values, width=bar_w * 0.88, color=s["color"],
                edgecolor=palette.FIGURE_NEUTRAL["axis"], linewidth=0.4,
                label=s["name"], zorder=2)
         if s["error"]:
@@ -376,10 +393,15 @@ def main(argv=None):
     ap.add_argument("-o", "--output", required=True)
     ap.add_argument("--grayscale", action="store_true",
                     help="同时输出灰度版，用于黑白打印自检")
+    ap.add_argument("--palette", help="主题色卡（okabe-ito / rose6 / spectral8 / "
+                                      "minimal6 / map7 / medical6 / ocean8 / "
+                                      "material6 / bluepink10 / medical2_6）")
     args = ap.parse_args(argv)
 
     with open(os.path.abspath(args.spec), encoding="utf-8-sig") as fh:
         spec = json.load(fh)
+    if args.palette:
+        spec["palette"] = args.palette
     path = render(spec, args.output, grayscale=args.grayscale)
     print("已生成：%s" % path)
     return 0

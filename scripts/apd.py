@@ -68,6 +68,39 @@ def cmd_chart(args):
     return make_chart.main([args.spec, "-o", args.output])
 
 
+def cmd_palette(args):
+    """列出主题色卡，并给出 n 类时的"安全子集"与实测判据。"""
+    import palette
+
+    names = [args.name] if args.name else list(palette.THEMES)
+    for name in names:
+        try:
+            card = palette.theme(name)
+        except KeyError as exc:
+            print(str(exc))
+            return 1
+        key = next((k for k, v in palette.THEMES.items() if v is card), name)
+        full = palette.analyze(card["colors"])
+        print("=" * 74)
+        print("%s  ——  %s" % (key, card["label"]))
+        print("  全色卡 %d 色：%s" % (len(card["colors"]), " ".join(card["colors"])))
+        print("  全色卡可区分度：红绿色盲最小距离 %.1f，明度差最小 ΔL*=%.1f"
+              % (full["min_cvd"], full["min_dl"]))
+        print("  用途：%s" % ("连续/发散色图（热图、密度图、梯度）"
+                              if card["kind"] in ("sequential", "diverging")
+                              else "分类色（配合安全子集使用）"))
+        for n in (3, 4, 5):
+            if n > len(card["colors"]):
+                break
+            sub = palette.safe_subset(key, n)
+            print("  %d 类安全子集：%-42s 最小CVD=%5.1f 最小ΔL*=%5.1f  %s"
+                  % (n, " ".join(sub["colors"]), sub["min_cvd"],
+                     sub["min_dl"], sub["verdict"]))
+    print("=" * 74)
+    print("用法：figures.py spec.json -o fig.png --palette rose6")
+    return 0
+
+
 def cmd_figure(args):
     import figures
     argv = [args.spec, "-o", args.output]
@@ -283,6 +316,10 @@ def build_parser():
     p.add_argument("--pages")
     p.set_defaults(func=cmd_preview)
 
+
+    p = sub.add_parser("palette", help="查看主题色卡与安全子集判定")
+    p.add_argument("name", nargs="?", help="色卡名（省略则全部）")
+    p.set_defaults(func=cmd_palette)
 
     p = sub.add_parser("figure", help="按国标/期刊惯例渲染插图（毫米版面 + 色板校验）")
     p.add_argument("spec")

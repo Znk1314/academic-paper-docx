@@ -112,3 +112,66 @@ def test_grey_ramp_is_monotone_and_separated():
     assert lums == sorted(lums)
     for a, b in zip(lums, lums[1:]):
         assert (b - a) >= 15
+
+# ---------------------------------------------------------------- 主题色卡
+
+def test_theme_registry_shape():
+    """9 套设计色卡：hex 合法、卡内不重复、标注了用途类型。"""
+    assert len(palette.THEMES) == 9
+    for key, card in palette.THEMES.items():
+        assert card["label"], key
+        assert card["kind"] in ("qualitative", "sequential", "diverging"), key
+        assert 3 <= len(card["colors"]) <= 10, key
+        for value in card["colors"]:
+            assert palette.normalize(value) == value.upper(), (key, value)
+        assert len(set(card["colors"])) == len(card["colors"]), key
+
+
+def test_theme_full_card_is_not_a_categorical_set():
+    """设计色卡整体不能当 N 类用：rose6 含三个红色阶，灰度差极小。"""
+    report = palette.analyze(palette.THEMES["rose6"]["colors"])
+    assert report["ok"] is False
+    assert report["min_dl"] < 5
+    assert report["verdict"] == "不建议作分类色"
+
+
+def test_safe_subset_returns_distinguishable_colors():
+    sub = palette.safe_subset("rose6", 3)
+    assert len(sub["colors"]) == 3
+    assert set(sub["colors"]) <= set(palette.THEMES["rose6"]["colors"])
+    assert sub["min_cvd"] >= 15 and sub["min_dl"] >= 15
+    assert sub["verdict"] == "安全"
+
+
+def test_safe_subset_excludes_near_white_background():
+    """#F5F7F7 这类近白色不能当分类填充色。"""
+    sub = palette.safe_subset("ocean8", 3)
+    assert "#F5F7F7" not in sub["colors"]
+
+
+def test_safe_subset_keeps_design_order():
+    colors = palette.THEMES["minimal6"]["colors"]
+    sub = palette.safe_subset("minimal6", 3)
+    idx = [colors.index(c) for c in sub["colors"]]
+    assert idx == sorted(idx)
+
+
+def test_theme_lookup_by_key_and_label():
+    assert palette.theme("rose6") is palette.theme("玫瑰豆沙（低饱和红+雾蓝）")
+    with pytest.raises(KeyError):
+        palette.theme("不存在的色卡")
+
+
+def test_theme_cmap_and_resolve():
+    from matplotlib.colors import LinearSegmentedColormap
+    assert isinstance(palette.theme_cmap("spectral8"), LinearSegmentedColormap)
+    assert isinstance(palette.resolve_cmap("bluepink10"), LinearSegmentedColormap)
+    with pytest.raises(ValueError):
+        palette.resolve_cmap("jet")
+
+
+def test_theme_colors_pass_membership_check_but_flag_low_luminance():
+    """色卡内的颜色不再被当"色板外"，但灰度接近仍会提示。"""
+    errors, warnings = palette.check_series(["#D49A9A", "#7B97A1"])
+    assert not errors
+    assert any("灰度亮度差" in w or "接近" in w for w in warnings)
