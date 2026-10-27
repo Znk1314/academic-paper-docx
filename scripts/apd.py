@@ -127,8 +127,11 @@ def cmd_tone(args):
         argv += ["--json", args.json]
     else:
         argv += ["--text", args.text]
-    if args.max_score is not None:
-        argv += ["--max-score", str(args.max_score)]
+    for flag, val in (("--max-score", getattr(args, "max_score", None)),
+                      ("--max-register", getattr(args, "max_register", None)),
+                      ("--max-defensive", getattr(args, "max_defensive", None))):
+        if val is not None:
+            argv += [flag, str(val)]
     if args.json_out:
         argv += ["--json-out"]
     return ai_tone_check.main(argv)
@@ -388,6 +391,10 @@ def build_parser():
     src.add_argument("--docx", help="已生成的 .docx")
     src.add_argument("--json", help="内容模型 content.json")
     src.add_argument("--text", help="纯文本 / Markdown")
+    p.add_argument("--max-register", type=int, default=None,
+                   help="语体分阈值（越大白越大）")
+    p.add_argument("--max-defensive", type=int, default=None,
+                   help="防御性分阈值（越防御越大）")
     p.add_argument("--max-score", type=int, default=None,
                    help="超过该分数时退出码 1（CI 门禁用）")
     p.add_argument("--json-out", action="store_true", help="机器可读输出")

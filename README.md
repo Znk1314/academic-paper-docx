@@ -496,15 +496,24 @@ python scripts/apd.py qa work/report.docx --spec work/spec.json
 TOC 域、页眉页脚域、参考文献缩进、交叉引用、字体白名单、空白页、占位符残留、文风提示。
 `--strict` 把 WARN 也当失败，适合 CI 门禁。
 
-## 文风：去掉「AI 味」
+## 文风：三条轴都要低
 
 排版对完之后，内容本身还可能一眼就是模型写的。这一层来自
 [blader/humanizer](https://github.com/blader/humanizer) 与
 [op7418/Humanizer-zh](https://github.com/op7418/Humanizer-zh) 的思路，
 但按**学术语体**重写了规则与豁免：
 
+**一条主线**：措辞强度 = 证据强度。偏高的叫 AI 腔，偏低叫防御性写作，语域不对叫大白话，
+所以检测分三条轴，任一条 ≤20 才算过：
+
+| 轴 | 字段 | 偏高意味着 | 规则章节 |
+|---|---|---|---|
+| AI 味 | `score` | 空转、拔高、模板化 | §1–§6（S/A/B 级，12 类典型句） |
+| 语体 | `register_score` | 大白话、聊天口吻 | §8（R 级） |
+| 防御性 | `defensive_score` | 免责声明、铺垫让步、模糊限定叠加、结尾强行平衡 | §9（D 级） |
+
 - 规则文件：[references/anti-ai-academic-zh.md](references/anti-ai-academic-zh.md)
-  （S/A/B 三级强度、12 类典型句的 before/after、**学术豁免清单**、改写协议）
+  （三轴总览、before/after、**学术豁免清单**、改写协议、逐句自检）
 - 检测器：`scripts/ai_tone_check.py` —— 词典 + 正则 + 结构指标（句长变异、连接词密度、
   数字密度、段首复读标题），输出**规则编号 + 段落号 + 原句 + 改法**，只报警不改稿。
 
@@ -512,14 +521,18 @@ TOC 域、页眉页脚域、参考文献缩进、交叉引用、字体白名单�
 python scripts/apd.py tone --docx work/report.docx        # 给已生成的文档打分定位
 python scripts/apd.py tone --json work/content.json       # 写内容模型时就能查
 python scripts/apd.py tone --json work/content.json --max-score 40   # 超阈值退出码 1
+python scripts/apd.py tone --docx work/report.docx \
+    --max-score 20 --max-register 20 --max-defensive 20               # 三轴都卡
 ```
 
 实测（仓库自带样例，同一套规则）：
 
-| 文本 | 分数 | 等级 | 主要命中 |
+| 文本 | AI 味 | 语体 | 防御性 |
 |---|---|---|---|
-| `examples/demo/content_model.json`（我按规范写的正文） | 8 | 清爽 | S2.4 ×1（"这说明…"这句其实带条件，属于启发式的过度报警） |
-| 刻意堆砌的对照组（随着…、不仅…更是…、专家认为、综上所述…） | 100 | 重 | S2.1 / S2.2 / S2.3 / S2.12 / A2.5 / A2.7 |
+| `examples/demo/content_model.json`（按规范写的正文） | 0（清爽） | 8（学术语体） | 0（克制） |
+| 刻意堆砌 AI 套话（随着…、不仅…更是…、专家认为…） | 100（重） | 低 | 低 |
+| 大白话对照组（我们觉得…挺不错…搞了半天…） | 0 | 96（大白话） | 低 |
+| 防御性对照组（并非否认…诚然…仍需理性看待…） | 0 | 0 | 100（通篇防御） |
 
 三条设计取舍，避免把工具做成"词表黑名单"：
 

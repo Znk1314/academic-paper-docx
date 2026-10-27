@@ -216,6 +216,11 @@ class Report:
         """语体分（R 级规则）：越高越大白话。"""
         return self._weighted({"R"})
 
+    @property
+    def defensive_score(self) -> int:
+        """防御性分（D 级规则）：越高越像在为想象中的批评者写作。"""
+        return self._weighted({"D"})
+
 
 # ---------------------------------------------------------------- 语体（大白话）
 
@@ -260,7 +265,55 @@ REGISTER_RULES: list[Rule] = [
     ),
 ]
 
-ALL_RULES = RULES + REGISTER_RULES
+# ---------------------------------------------------------------- 防御性写作
+
+# 第三轴：为"想象中的批评者"写作。表现为免责声明、铺垫式让步、模糊限定叠加、
+# 预设质疑的"不是…而是…"、结尾强行平衡。
+# 与 AI 味（拔高/空转）方向相反但同源：都是"措辞强度 ≠ 证据强度"。
+DEFENSIVE_RULES: list[Rule] = [
+    Rule(
+        "D1", "D", "免责声明与自我辩护",
+        r"并非否认|并不是否认|无意贬低|无意否定|并非要否定|并不是要|不否认|"
+        r"这并不意味着|但这并不代表|事先声明|需要声明的是",
+        "删掉声明本身，直接写事实与结论；读者默认会善意理解",
+        4,
+    ),
+    Rule(
+        "D2", "D", "铺垫式让步",
+        r"诚然|固然|不可否认|毋庸置疑|话虽如此|虽然如此|当然，也|也有其道理",
+        "只在让步会实质改变结论或适用范围时保留，否则直接给判断",
+        3,
+    ),
+    Rule(
+        "D3", "D", "模糊限定叠加",
+        r"(?:可能|或许|一定程度上|某种意义上|某种程度上|在某种程度上)"
+        r"[^。；！？]{0,14}"
+        r"(?:可能|或许|一定程度上|某种意义上|某种程度上|在某种程度上)",
+        "叠加限定会稀释结论。确有不确定性时，明确指出不确定的是什么",
+        3,
+    ),
+    Rule(
+        "D4", "D", "预设质疑的“不是…而是…”",
+        r"不是[^。；！？]{0,20}而是",
+        "若文中没有人质疑过这一点，直接说它是什么、怎么运作、为何成立",
+        2,
+    ),
+    Rule(
+        "D5", "D", "结尾强行平衡",
+        r"不能一概而论|仍需理性看待|应辩证|有待商榷|仁者见仁|见仁见智|"
+        r"不能简单地说",
+        "删掉收尾平衡句；让读者自己判断，或把边界条件写进方法与讨论",
+        3,
+    ),
+    Rule(
+        "D6", "D", "弱化到看不出结论",
+        r"(?:似乎|或许|大致上|基本上)(?:可以)?(?:认为|说明|表明|证明了)",
+        "把能确定的写成确定；不能确定的写成“在……条件下观察到”",
+        2,
+    ),
+]
+
+ALL_RULES = RULES + REGISTER_RULES + DEFENSIVE_RULES
 
 RULE_BY_ID = {r.id: r for r in ALL_RULES}
 
@@ -453,6 +506,14 @@ LEVEL_LABEL = [(60, "重"), (40, "明显"), (20, "轻微"), (0, "清爽")]
 
 
 REGISTER_LABEL = [(60, "大白话"), (40, "偏口语"), (20, "略松"), (0, "学术语体")]
+DEFENSIVE_LABEL = [(60, "通篇防御"), (40, "明显防御"), (20, "略防御"), (0, "克制")]
+
+
+def grade_defensive(score: int) -> str:
+    for threshold, label in DEFENSIVE_LABEL:
+        if score >= threshold:
+            return label
+    return "克制"
 
 
 def grade_register(score: int) -> str:
@@ -476,9 +537,13 @@ def render(report: Report) -> str:
     lines.append("-" * 72)
     score = report.score
     reg = report.register_score
-    lines.append("AI 味 %d / 100（%s）   语体 %d / 100（%s）"
-                 % (score, grade(score), reg, grade_register(reg)))
-    lines.append("两者都要低：AI 味高是空话套话，语体高是大白话；目标区间各 ≤20。")
+    dfe = report.defensive_score
+    lines.append("AI 味 %d/100（%s）｜语体 %d/100（%s）｜防御性 %d/100（%s）"
+                 % (score, grade(score), reg, grade_register(reg),
+                    dfe, grade_defensive(dfe)))
+    lines.append("三轴都要低（各 ≤20）：AI 味=空转拔高；语体=大白话；"
+                 "防御性=为想象中的批评者写作。")
+    lines.append("共同目标只有一个：措辞强度 = 证据强度。")
     m = report.metrics
     lines.append("句长均值 %s ｜ 句长变异 %s ｜ 连接词 %s/千字 ｜ 数字 %s/千字"
                  % (m.get("句长均值"), m.get("句长变异"),
@@ -511,10 +576,10 @@ def render(report: Report) -> str:
     by_level: dict[str, int] = {}
     for hit in report.hits:
         by_level[hit.level] = by_level.get(hit.level, 0) + 1
-    lines.append("S 级 %d 条 / A 级 %d 条 / B 级 %d 条 / R 级（口语）%d 条；"
+    lines.append("S 级 %d / A 级 %d / B 级 %d / R 级（大白话）%d / D 级（防御性）%d；"
                  "规则说明见 references/anti-ai-academic-zh.md"
-                 % (by_level.get("S", 0), by_level.get("A", 0),
-                    by_level.get("B", 0), by_level.get("R", 0)))
+                 % (by_level.get("S", 0), by_level.get("A", 0), by_level.get("B", 0),
+                    by_level.get("R", 0), by_level.get("D", 0)))
     return "\n".join(lines)
 
 
@@ -526,6 +591,8 @@ def main(argv=None):
     src.add_argument("--docx", help="已生成的 .docx")
     src.add_argument("--json", help="内容模型 content.json")
     src.add_argument("--text", help="纯文本/Markdown（空行分段，# 开头视为标题）")
+    ap.add_argument("--max-defensive", type=int, default=None,
+                    help="防御性分阈值（越高越防御）；超阈值退出码 1")
     ap.add_argument("--max-register", type=int, default=None,
                     help="语体分阈值（越大白越大）；超阈值退出码 1")
     ap.add_argument("--max-score", type=int, default=None,
@@ -550,6 +617,8 @@ def main(argv=None):
             "source": report.source,
             "score": report.score,
             "grade": grade(report.score),
+            "register_score": report.register_score,
+            "defensive_score": report.defensive_score,
             "chars": report.chars,
             "sentences": report.sentences,
             "metrics": report.metrics,

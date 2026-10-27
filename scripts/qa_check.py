@@ -1095,10 +1095,13 @@ def check_ai_tone(path):
         if len(top) >= 3:
             break
     reg = report.register_score
-    detail = "AI 味 %d/100（%s）｜ 语体 %d/100（%s）%s；详见 references/anti-ai-academic-zh.md" % (
-        score, ai_tone_check.grade(score),
-        reg, ai_tone_check.grade_register(reg),
-        "，主要命中：%s" % "/".join(top) if top else "")
+    dfe = report.defensive_score
+    detail = ("AI 味 %d/100（%s）｜ 语体 %d/100（%s）｜ 防御性 %d/100（%s）%s；"
+              "详见 references/anti-ai-academic-zh.md" % (
+                  score, ai_tone_check.grade(score),
+                  reg, ai_tone_check.grade_register(reg),
+                  dfe, ai_tone_check.grade_defensive(dfe),
+                  "，主要命中：%s" % "/".join(top) if top else ""))
     check("文风", "AI 味检测（提示项，不判失败）", score < 40, detail, warn=True)
 
 

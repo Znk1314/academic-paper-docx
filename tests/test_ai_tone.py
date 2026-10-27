@@ -206,3 +206,47 @@ def test_register_rules_are_reported_separately():
     assert not ids & {"S2.1", "A2.5"}          # 不把 AI 味规则算进语体
     assert "学术语体" in t.grade_register(0)
     assert "大白话" in t.grade_register(80)
+
+
+# ---------------------------------------------------------------- 防御性写作
+
+DEFENSIVE = ("需要说明的是，本文并非否认既有模型的解释力，也无意贬低机理建模的价值。"
+             "诚然，数据驱动方法有其局限，但这并不意味着仿真结果不可信。"
+             "在某种意义上，该结论可能一定程度上受样本量影响，因此仍需理性看待，不能一概而论。")
+
+PLAIN_ACADEMIC = ("机理模型在参数可测时给出可解释的外推；数据驱动模型在参数缺失时依靠特征映射补足预测能力。"
+                  "本文用 5 类土地利用类型的 120 组样本训练 PCA-GA-BP 网络，验证集决定系数为 0.933。"
+                  "样本量少于 60 组时，验证集误差上升约 40%，因此该模型适用于不少于 60 组的样本条件。")
+
+
+def test_defensive_text_scores_high():
+    report = _analyze(DEFENSIVE)
+    assert report.defensive_score >= 40, report.defensive_score
+    ids = {h.rule_id for h in report.hits}
+    assert ids & {"D1", "D2", "D3", "D5"}, ids
+
+
+def test_plain_academic_text_scores_low_defensive():
+    report = _analyze(PLAIN_ACADEMIC)
+    assert report.defensive_score <= 20, report.defensive_score
+
+
+def test_defensive_rules_do_not_mix_with_other_axes():
+    report = _analyze(DEFENSIVE)
+    assert report.score <= 20            # 没有 AI 套话
+    assert report.register_score <= 20   # 不是大白话
+    assert report.defensive_score >= 40  # 而是防御性
+
+
+def test_defensive_grade_labels():
+    import ai_tone_check as t
+    assert "克制" in t.grade_defensive(0)
+    assert "通篇防御" in t.grade_defensive(80)
+
+
+def test_legit_limitation_is_not_flagged():
+    """有证据的边界条件不算防御性写作（避免矫枉过正）。"""
+    text = ("未考虑电池内阻随温度变化的影响，实际寿命可能低于估计值。"
+            "在 n<60 条件下验证集误差上升约 40%，该区间不外推。")
+    report = _analyze(text)
+    assert report.defensive_score <= 40, report.defensive_score
