@@ -279,6 +279,23 @@ academic-paper-docx/
 `apd qa` 会检查该顺序（判 WARN，因为校规可能不同）。
 完整证据与原文摘录见 `references/front-matter-order.md`。
 
+## 10.6 期刊投稿模板（`--profile csae`）
+
+除学位论文，还可按《农业工程学报》实测版式出稿（双栏、黑体标题、9 pt 摘要、
+楷体图题、0.75/0.5 pt 三线表、奇偶页页眉）：
+
+```bash
+python <SKILL_DIR>/scripts/apd.py build work/paper.json -o work/paper.docx --profile csae
+python <SKILL_DIR>/scripts/apd.py qa    work/paper.docx --profile csae
+```
+
+内容模型需补 `title_en` / `authors` / `affiliations` / `abstract_en` / `journal`
+等字段，完整样例见 `examples/journal_csae/content.json`；
+参数表与实测依据见 `references/journal-csae.md`。
+
+> 学位论文用默认 `--profile thesis`（或不写），不要混用：两者的页边距、字号、
+> 栏数、三线表线宽都不同。
+
 ## 11. 图表与配色（GB/T 7713.2 + 期刊惯例）
 
 完整规范：`references/figure-table-standard.md`、`references/palette.md`。

@@ -50,6 +50,10 @@
 |---|---|
 | ![散点与箱线](docs/screenshots/05-figures-mixed.png) | ![热图](docs/screenshots/06-heatmap.png) |
 
+另有《农业工程学报》期刊模板（`--profile csae`，双栏、黑体标题、楷体图题）：
+
+![期刊模板](docs/screenshots/08-journal-csae.png)
+
 完整 11 页、6 张图见 [docs/demo/demo_report.pdf](docs/demo/demo_report.pdf)：
 柱状（4 类，零基线）、折线（3 系列 × 7 点、SD 误差线、`*`/`**` 显著性）、
 分组柱状（3 系列 × 4 组）、散点（2 系列 × 12 点）、箱线（4 组）、热图（cividis 顺序色板）。

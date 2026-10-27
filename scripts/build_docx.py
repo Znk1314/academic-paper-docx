@@ -22,6 +22,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 if HERE not in sys.path:
     sys.path.insert(0, HERE)
 
+import docx_builder
 from docx_builder import build_from_model  # noqa: E402
 
 
@@ -40,6 +41,9 @@ def main(argv=None):
     ap.add_argument("model", help="内容模型 JSON 路径")
     ap.add_argument("-o", "--output", help="输出 docx 路径（默认与 JSON 同名）")
     ap.add_argument("--spec", help="覆盖格式参数的 JSON（配色 / 字号等）")
+    ap.add_argument("--profile", default=None,
+                    choices=["thesis", "csae"],
+                    help="排版模板：thesis=学位论文（默认）；csae=农业工程学报期刊稿")
     args = ap.parse_args(argv)
 
     model_path = os.path.abspath(args.model)
@@ -53,8 +57,13 @@ def main(argv=None):
             overrides = json.load(fh)
 
     out = args.output or os.path.splitext(model_path)[0] + ".docx"
-    builder, path = build_from_model(model, out, overrides,
-                                     base_dir=os.path.dirname(model_path))
+    profile = args.profile or model.get("profile") or "thesis"
+    if profile == "csae":
+        builder, path = docx_builder.build_journal_from_model(
+            model, out, overrides, base_dir=os.path.dirname(model_path))
+    else:
+        builder, path = build_from_model(model, out, overrides,
+                                         base_dir=os.path.dirname(model_path))
 
     print("生成完成：%s" % path)
     print("统计：一级标题 %d / 表 %d / 图 %d / 公式 %d"

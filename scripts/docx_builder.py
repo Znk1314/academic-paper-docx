@@ -16,8 +16,9 @@ import re
 
 import palette
 from docx import Document
+from docx.enum.section import WD_SECTION
 from docx.enum.table import WD_ALIGN_VERTICAL, WD_TABLE_ALIGNMENT
-from docx.enum.text import WD_ALIGN_PARAGRAPH, WD_BREAK
+from docx.enum.text import WD_ALIGN_PARAGRAPH, WD_BREAK, WD_TAB_ALIGNMENT
 from docx.oxml import OxmlElement
 from docx.oxml.ns import qn
 from docx.shared import Cm, Emu, Pt, RGBColor
@@ -1025,9 +1026,19 @@ class PaperBuilder:
         self._run(p, text, self._f("head_cn"), self._f("head_en"),
                   self._s("caption"), True, self._c("navy"))
         if caption_en:
-            self._run(p, "  " + str(caption_en).strip(), self._f("head_cn"),
-                      self._f("head_en"), self._s("caption"), False,
-                      self._c("navy"))
+            if self.spec.get("caption_en_newline"):
+                p2 = self.doc.add_paragraph()
+                para_format(p2, align=WD_ALIGN_PARAGRAPH.CENTER,
+                            first_line_indent=0, first_line_chars=0,
+                            space_before=0, space_after=3, line_spacing=1.15,
+                            keep_with_next=True)
+                self._run(p2, "Table %d　%s" % (self.tbl_no, str(caption_en).strip()),
+                          self._f("head_en"), self._f("head_en"),
+                          self._s("caption"), False, self._c("navy"))
+            else:
+                self._run(p, "  " + str(caption_en).strip(), self._f("head_cn"),
+                          self._f("head_en"), self._s("caption"), False,
+                          self._c("navy"))
         return p, text
 
     def add_figure_caption(self, caption, keep_with_next=False, caption_en=None):
@@ -1041,9 +1052,18 @@ class PaperBuilder:
         self._run(p, text, self._f("head_cn"), self._f("head_en"),
                   self._s("caption"), True, self._c("navy"))
         if caption_en:
-            self._run(p, "  " + str(caption_en).strip(), self._f("head_cn"),
-                      self._f("head_en"), self._s("caption"), False,
-                      self._c("navy"))
+            if self.spec.get("caption_en_newline"):
+                p2 = self.doc.add_paragraph()
+                para_format(p2, align=WD_ALIGN_PARAGRAPH.CENTER,
+                            first_line_indent=0, first_line_chars=0,
+                            space_before=0, space_after=3, line_spacing=1.15)
+                self._run(p2, "Fig.%d　%s" % (self.fig_no, str(caption_en).strip()),
+                          self._f("head_en"), self._f("head_en"),
+                          self._s("caption"), False, self._c("navy"))
+            else:
+                self._run(p, "  " + str(caption_en).strip(), self._f("head_cn"),
+                          self._f("head_en"), self._s("caption"), False,
+                          self._c("navy"))
         return p, text
 
     def add_note(self, note, align=WD_ALIGN_PARAGRAPH.LEFT):
@@ -1144,7 +1164,10 @@ class PaperBuilder:
                 add_rich_text(p, text, self._f("body_cn"), self._f("body_en"),
                               size, False, rgb(self._c("ink")))
 
-        set_three_line_table(table)
+        rules = self.spec.get("table_rules") or {}
+        set_three_line_table(table,
+                             outer_sz=int(rules.get("outer_sz", 12)),
+                             header_sz=int(rules.get("header_sz", 6)))
         set_table_repeat_header(table)
         forbid_row_split(table)
         if note:
@@ -1603,3 +1626,361 @@ def build_from_model(model, out_path, spec_overrides=None, base_dir=None):
     builder = PaperBuilder(spec_overrides, base_dir=base_dir)
     out_path = builder.build(model, out_path)
     return builder, out_path
+
+# ---------------------------------------------------------------- 期刊模板
+
+# 参数来源：实测《农业工程学报》4 篇论文（A4 595.3×841.9 pt）
+#   · 正文 宋体/Times 10 pt，双栏，栏宽 8.66 cm，栏间距 0.73 cm
+#   · 中文标题 黑体 18 pt；作者 仿宋 14 pt；单位 宋体 9 pt
+#   · 摘要/关键词 9 pt（标签黑体）；一级标题 黑体 11 pt；二级 黑体 10 pt
+#   · 图题 楷体 9 pt、表题 黑体 9 pt，均中英对照
+#   · 三线表：顶/底线 0.75 pt，栏目线 0.5 pt
+CSAE_SPEC = {
+    "page": {"width_cm": 21.0, "height_cm": 29.7,
+             "top_cm": 2.70, "bottom_cm": 2.00,
+             "left_cm": 1.46, "right_cm": 1.28,
+             "header_cm": 1.90, "footer_cm": 1.20,
+             "different_first_page": False},
+    "columns": {"count": 2, "space_cm": 0.73},
+    "fonts": {"head_cn": "黑体", "head_en": "Times New Roman",
+              "body_cn": "宋体", "body_en": "Times New Roman"},
+    "sizes": {"title": 18, "author": 14, "affil": 9, "abstract": 9,
+              "keywords": 9, "meta": 9, "h1": 11, "h2": 10, "h3": 10,
+              "body": 10, "caption": 9, "table": 8, "note": 8,
+              "reference": 8, "header": 9, "footer": 9,
+              "title_en": 16, "author_en": 10.5, "abstract_en": 10},
+    "colors": {"navy": "000000", "blue": "000000", "orange": "000000",
+               "green": "000000", "ink": "000000", "gray": "000000",
+               "pale": "FFFFFF", "pale_line": "000000"},
+    "text_width_cm": 18.25,
+    "table_width_cm": 8.60,
+    "table_rules": {"outer_sz": 6, "header_sz": 4},   # 0.75 pt / 0.5 pt
+    "figure_half_cm": 4.20,
+    "figure_full_cm": 8.60,
+    "figure_default_cm": 8.60,
+    "figure_max_cm": 8.60,
+    "figure_max_height_cm": 18.0,
+    "line_spacing": 1.15,
+    "para_space_after": 3,
+    # 期刊：图表题的英文另起一行（学位论文可与中文同行）
+    "caption_en_newline": True,
+}
+
+
+def _set_columns(section, count=2, space_cm=0.73):
+    """把某一节设为多栏（w:cols）。"""
+    sectPr = section._sectPr
+    for old in sectPr.findall(qn("w:cols")):
+        sectPr.remove(old)
+    cols = OxmlElement("w:cols")
+    cols.set(qn("w:num"), str(count))
+    cols.set(qn("w:space"), str(int(round(space_cm / 2.54 * 1440))))
+    cols.set(qn("w:equalWidth"), "1")
+    cols.set(qn("w:sep"), "0")
+    sectPr.append(cols)
+
+
+def _add_tab_stops(paragraph, pos_cm=None):
+    """设置 左/中/右 三个制表位（用于期刊页眉三栏对齐）。"""
+    pf = paragraph.paragraph_format
+    width = pos_cm or 18.25
+    for pos, align in ((0, WD_TAB_ALIGNMENT.LEFT),
+                       (width / 2, WD_TAB_ALIGNMENT.CENTER),
+                       (width, WD_TAB_ALIGNMENT.RIGHT)):
+        pf.tab_stops.add_tab_stop(Cm(pos), align)
+
+
+class JournalBuilder(PaperBuilder):
+    """期刊投稿排版（默认按《农业工程学报》实测参数）。
+
+    model 额外字段：
+      journal:   {"name_cn", "name_en", "year", "volume", "issue", "month",
+                  "doi", "clc", "doc_code", "article_no", "received",
+                  "fund", "author_bio", "cite_zh", "cite_en"}
+      title_en / authors / affiliations / affiliations_en /
+      abstract_en / keywords_en / title_short（偶数页页眉用"作者等：题名"）
+    """
+
+    def __init__(self, spec_overrides=None, base_dir=None, profile="csae"):
+        overrides = deep_merge(CSAE_SPEC, spec_overrides or {})
+        super().__init__(overrides, base_dir=base_dir)
+        self.profile = profile
+
+    # ---------- 版式
+    def setup_journal(self):
+        doc = self.doc
+        page = self.spec["page"]
+        sec = doc.sections[0]
+        sec.page_width = Cm(page["width_cm"])
+        sec.page_height = Cm(page["height_cm"])
+        sec.top_margin = Cm(page["top_cm"])
+        sec.bottom_margin = Cm(page["bottom_cm"])
+        sec.left_margin = Cm(page["left_cm"])
+        sec.right_margin = Cm(page["right_cm"])
+        sec.header_distance = Cm(page["header_cm"])
+        sec.footer_distance = Cm(page["footer_cm"])
+
+        normal = doc.styles["Normal"]
+        set_style_font(normal, "宋体", "Times New Roman", self._s("body"), False,
+                       rgb("000000"))
+        pf = normal.paragraph_format
+        pf.line_spacing = self.spec.get("line_spacing", 1.15)
+        pf.space_before = Pt(0)
+        pf.space_after = Pt(self.spec.get("para_space_after", 3))
+        pf.alignment = WD_ALIGN_PARAGRAPH.JUSTIFY
+
+        h1 = doc.styles["Heading 1"]
+        set_style_font(h1, self._f("head_cn"), self._f("head_en"),
+                       self._s("h1"), True, rgb("000000"))
+        # 期刊不在一级标题下画装饰线（学位论文模板才有）
+        for pBdr in h1.element.findall(".//" + qn("w:pBdr")):
+            pBdr.getparent().remove(pBdr)
+        h1.paragraph_format.space_before = Pt(8)
+        h1.paragraph_format.space_after = Pt(3)
+        h1.paragraph_format.keep_with_next = True
+        _set_outline_level(h1.element.get_or_add_pPr(), 0)
+
+        h2 = doc.styles["Heading 2"]
+        set_style_font(h2, self._f("head_cn"), self._f("head_en"),
+                       self._s("h2"), True, rgb("000000"))
+        h2.paragraph_format.space_before = Pt(5)
+        h2.paragraph_format.space_after = Pt(2)
+        h2.paragraph_format.keep_with_next = True
+        _set_outline_level(h2.element.get_or_add_pPr(), 1)
+
+        h3 = doc.styles["Heading 3"]
+        set_style_font(h3, self._f("head_cn"), self._f("head_en"),
+                       self._s("h3"), True, rgb("000000"))
+        h3.paragraph_format.space_before = Pt(4)
+        h3.paragraph_format.space_after = Pt(2)
+        h3.paragraph_format.keep_with_next = True
+        _set_outline_level(h3.element.get_or_add_pPr(), 2)
+
+        enable_even_odd_headers(doc)
+
+    # ---------- 页眉页脚
+    def add_journal_header_footer(self, journal, title_short=""):
+        doc = self.doc
+        sec = doc.sections[0]
+        hdr = sec.header
+        hdr.is_linked_to_previous = False
+        for p in list(hdr.paragraphs)[1:]:
+            p._p.getparent().remove(p._p)
+        p = hdr.paragraphs[0]
+        para_format(p, align=WD_ALIGN_PARAGRAPH.LEFT, first_line_indent=0,
+                    first_line_chars=0, space_before=0, space_after=0,
+                    line_spacing=1.0)
+        _add_tab_stops(p)
+        size = self._s("header")
+        self._run(p, "第 %s 卷第 %s 期" % (journal.get("volume", ""),
+                                         journal.get("issue", "")),
+                  size=size)
+        self._run(p, "\t")
+        self._run(p, "农 业 工 程 学 报", size=size)
+        self._run(p, "\t")
+        self._run(p, "Vol.%s No.%s" % (journal.get("volume", ""),
+                                       journal.get("issue", "")), size=size)
+
+        p2 = hdr.add_paragraph()
+        para_format(p2, align=WD_ALIGN_PARAGRAPH.LEFT, first_line_indent=0,
+                    first_line_chars=0, space_before=0, space_after=0,
+                    line_spacing=1.0)
+        _add_tab_stops(p2)
+        self._run(p2, "%s 年 %s 月" % (journal.get("year", ""),
+                                       journal.get("month", "")), size=size)
+        self._run(p2, "\t")
+        self._run(p2, "Transactions of the Chinese Society of Agricultural Engineering",
+                  size=size)
+        self._run(p2, "\t")
+        self._run(p2, "%s %s" % (journal.get("month_en", "Aug."),
+                                 journal.get("year", "")), size=size)
+
+        # 偶数页页眉：期次 | 作者等：题名 | 页码
+        even = sec.even_page_header
+        even.is_linked_to_previous = False
+        for ep in list(even.paragraphs)[1:]:
+            ep._p.getparent().remove(ep._p)
+        ep = even.paragraphs[0]
+        para_format(ep, align=WD_ALIGN_PARAGRAPH.LEFT, first_line_indent=0,
+                    first_line_chars=0, space_before=0, space_after=0,
+                    line_spacing=1.0)
+        _add_tab_stops(ep)
+        self._run(ep, "第 %s 期" % journal.get("issue", ""), size=size)
+        self._run(ep, "\t")
+        self._run(ep, title_short or "", size=size)
+        self._run(ep, "\t")
+        add_field(ep, "PAGE", placeholder="1", size=size)
+
+        # 页脚：期刊不放页脚，清空
+        ftr = sec.footer
+        ftr.is_linked_to_previous = False
+        for fp in ftr.paragraphs:
+            for r in list(fp.runs):
+                r._r.getparent().remove(r._r)
+        for other in (sec.first_page_header, sec.first_page_footer):
+            other.is_linked_to_previous = False
+            for op in other.paragraphs:
+                for r in list(op.runs):
+                    r._r.getparent().remove(r._r)
+
+    # ---------- 前置部分
+    def add_journal_front(self, model):
+        j = model.get("journal", {})
+        meta = model.get("meta", {})
+        title = meta.get("title") or model.get("title", "")
+        p = self.doc.add_paragraph()
+        para_format(p, align=WD_ALIGN_PARAGRAPH.CENTER, first_line_indent=0,
+                    first_line_chars=0, space_before=6, space_after=6,
+                    line_spacing=1.1)
+        self._run(p, title, self._f("head_cn"), self._f("head_en"),
+                  self._s("title"), True, rgb("000000"))
+
+        authors = model.get("authors") or []
+        if authors:
+            p = self.doc.add_paragraph()
+            para_format(p, align=WD_ALIGN_PARAGRAPH.CENTER, first_line_indent=0,
+                        first_line_chars=0, space_before=0, space_after=2,
+                        line_spacing=1.1)
+            for i, name in enumerate(authors):
+                if i:
+                    self._run(p, "，", size=self._s("author"))
+                self._run(p, name, size=self._s("author"))
+                sup = model.get("author_sup", {}).get(name)
+                if sup:
+                    r = p.add_run(sup)
+                    r.font.superscript = True
+                    r.font.size = Pt(self._s("author") * 0.6)
+
+        affs = model.get("affiliations") or []
+        if affs:
+            p = self.doc.add_paragraph()
+            para_format(p, align=WD_ALIGN_PARAGRAPH.CENTER, first_line_indent=0,
+                        first_line_chars=0, space_before=0, space_after=6,
+                        line_spacing=1.15)
+            self._run(p, "（" + "；".join(affs) + "）", size=self._s("affil"))
+
+        zh = model.get("abstract") or {}
+        if zh.get("paragraphs"):
+            p = self.doc.add_paragraph()
+            para_format(p, align=WD_ALIGN_PARAGRAPH.JUSTIFY, first_line_indent=0,
+                        first_line_chars=0, space_before=4, space_after=2,
+                        line_spacing=1.15)
+            self._run(p, "摘　要：", self._f("head_cn"), self._f("head_en"),
+                      self._s("abstract"), True, rgb("000000"))
+            self._run(p, "".join(zh["paragraphs"]), size=self._s("abstract"))
+        if zh.get("keywords"):
+            p = self.doc.add_paragraph()
+            para_format(p, align=WD_ALIGN_PARAGRAPH.JUSTIFY, first_line_indent=0,
+                        first_line_chars=0, space_before=0, space_after=2,
+                        line_spacing=1.15)
+            self._run(p, "关键词：", self._f("head_cn"), self._f("head_en"),
+                      self._s("keywords"), True, rgb("000000"))
+            self._run(p, "；".join(zh["keywords"]), size=self._s("keywords"))
+
+        for key, label in (("doi", "doi："), ("clc", "中图分类号：")):
+            if j.get(key):
+                p = self.doc.add_paragraph()
+                para_format(p, align=WD_ALIGN_PARAGRAPH.LEFT,
+                            first_line_indent=0, first_line_chars=0,
+                            space_before=0, space_after=2, line_spacing=1.15)
+                extra = ""
+                if key == "clc":
+                    extra = ("文献标志码：%s　文章编号：%s"
+                             % (j.get("doc_code", "A"), j.get("article_no", "")))
+                self._run(p, label + str(j[key]), size=self._s("meta"))
+                if extra:
+                    self._run(p, "　" + extra, size=self._s("meta"))
+
+        if j.get("cite_zh"):
+            p = self.doc.add_paragraph()
+            para_format(p, align=WD_ALIGN_PARAGRAPH.JUSTIFY, first_line_indent=0,
+                        first_line_chars=0, space_before=4, space_after=2,
+                        line_spacing=1.15)
+            self._run(p, j["cite_zh"], size=self._s("meta"))
+
+        # 英文块
+        if model.get("title_en"):
+            p = self.doc.add_paragraph()
+            para_format(p, align=WD_ALIGN_PARAGRAPH.CENTER, first_line_indent=0,
+                        first_line_chars=0, space_before=6, space_after=4,
+                        line_spacing=1.1)
+            self._run(p, model["title_en"], self._f("head_cn"),
+                      self._f("head_en"), self._s("title_en"), True,
+                      rgb("000000"))
+        authors_en = model.get("authors_en") or []
+        if authors_en:
+            p = self.doc.add_paragraph()
+            para_format(p, align=WD_ALIGN_PARAGRAPH.CENTER, first_line_indent=0,
+                        first_line_chars=0, space_before=0, space_after=2,
+                        line_spacing=1.1)
+            self._run(p, ", ".join(authors_en), size=self._s("author_en"))
+        affs_en = model.get("affiliations_en") or []
+        if affs_en:
+            p = self.doc.add_paragraph()
+            para_format(p, align=WD_ALIGN_PARAGRAPH.CENTER, first_line_indent=0,
+                        first_line_chars=0, space_before=0, space_after=4,
+                        line_spacing=1.15)
+            self._run(p, "(" + "; ".join(affs_en) + ")", size=self._s("affil"))
+        en = model.get("abstract_en") or {}
+        if en.get("paragraphs"):
+            p = self.doc.add_paragraph()
+            para_format(p, align=WD_ALIGN_PARAGRAPH.JUSTIFY, first_line_indent=0,
+                        first_line_chars=0, space_before=2, space_after=2,
+                        line_spacing=1.15)
+            self._run(p, "Abstract: ", self._f("head_cn"), self._f("head_en"),
+                      self._s("abstract_en"), True, rgb("000000"))
+            self._run(p, " ".join(en["paragraphs"]), size=self._s("abstract_en"))
+        if en.get("keywords"):
+            p = self.doc.add_paragraph()
+            para_format(p, align=WD_ALIGN_PARAGRAPH.JUSTIFY, first_line_indent=0,
+                        first_line_chars=0, space_before=0, space_after=4,
+                        line_spacing=1.15)
+            self._run(p, "Keywords: ", self._f("head_cn"), self._f("head_en"),
+                      self._s("abstract_en"), True, rgb("000000"))
+            self._run(p, "; ".join(en["keywords"]), size=self._s("abstract_en"))
+
+    # ---------- 组装
+    def build_journal(self, model, out_path):
+        self.setup()
+        self.setup_journal()
+        j = model.get("journal", {})
+        self.add_journal_header_footer(j, model.get("header_short", ""))
+        self.add_journal_front(model)
+
+        # 正文：连续分节 → 双栏
+        sec = self.doc.add_section(WD_SECTION.CONTINUOUS)
+        sec.left_margin = Cm(self.spec["page"]["left_cm"])
+        sec.right_margin = Cm(self.spec["page"]["right_cm"])
+        sec.top_margin = Cm(self.spec["page"]["top_cm"])
+        sec.bottom_margin = Cm(self.spec["page"]["bottom_cm"])
+        _set_columns(sec, self.spec["columns"]["count"],
+                     self.spec["columns"]["space_cm"])
+
+        for item in model.get("sections", []):
+            self.render(item)
+
+        refs = model.get("references") or []
+        if refs:
+            self.add_references(refs, model.get("references_heading", "参考文献"))
+
+        enable_update_fields(self.doc)
+        set_print_view(self.doc)
+        out_path = os.path.abspath(out_path)
+        os.makedirs(os.path.dirname(out_path) or ".", exist_ok=True)
+        self.doc.save(out_path)
+        return out_path
+
+
+def enable_even_odd_headers(doc):
+    """在 settings.xml 里打开"奇偶页不同"。"""
+    settings = doc.settings.element
+    if settings.find(qn("w:evenAndOddHeaders")) is None:
+        el = OxmlElement("w:evenAndOddHeaders")
+        settings.append(el)
+
+
+def build_journal_from_model(model, out_path, spec_overrides=None, base_dir=None):
+    builder = JournalBuilder(spec_overrides, base_dir=base_dir)
+    path = builder.build_journal(model, out_path)
+    return builder, path
+

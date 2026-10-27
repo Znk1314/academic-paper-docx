@@ -38,6 +38,8 @@ def cmd_build(args):
     argv = [args.model]
     if args.output:
         argv += ["-o", args.output]
+    if getattr(args, "profile", None):
+        argv += ["--profile", args.profile]
     if args.spec:
         argv += ["--spec", args.spec]
     return build_docx.main(argv)
@@ -342,6 +344,8 @@ def build_parser():
     p.add_argument("model")
     p.add_argument("-o", "--output")
     p.add_argument("--spec", help="配色/字号覆盖 JSON")
+    p.add_argument("--profile", choices=["thesis", "csae"], default=None,
+                   help="排版模板：thesis=学位论文（默认）；csae=农业工程学报期刊稿")
     p.set_defaults(func=cmd_build)
 
     p = sub.add_parser("post", help="更新域/目录 + 导出 PDF + 固定页面视图")

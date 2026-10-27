@@ -30,6 +30,9 @@ BULLETS_ANYWHERE = "•●○▪◆■"
 RESULTS = []   # (level, group, name, detail)
 COUNTS = {"PASS": 0, "FAIL": 0, "WARN": 0}
 
+# 排版模板：thesis=学位论文（默认）；csae=农业工程学报期刊稿
+PROFILE = "thesis"
+
 # 期望值（默认取规范原值；用 --spec 传覆盖时可以校验换肤后的文档）
 EXPECT = {
     "navy": "1F3A5F",
@@ -958,6 +961,78 @@ _REF_ENTRY = re.compile(r"^\s*[\[［]\s*\d+\s*[\]］]")
 _REF_TYPE = re.compile(r"\[(?:J|M|C|D|S|P|R|N|G|Z|A|EB/OL|DB/OL|DB/CD|CP/DK|M/OL|J/OL)\]")
 
 
+def check_paper_a4(doc):
+    """期刊模板只校验纸张（页边距按各刊要求，不作硬约束）。"""
+    sec = doc.sections[0]
+    w = sec.page_width / 360000.0
+    h = sec.page_height / 360000.0
+    check("页面", "纸张 A4 21×29.7 cm（实测 %.1f×%.1f）" % (w, h),
+          abs(w - 21) < 0.2 and abs(h - 29.7) < 0.2)
+    num = 1
+    for sec_i in doc.sections:            # 双栏设在正文节，不在第一节
+        cols = sec_i._sectPr.find(qn("w:cols"))
+        if cols is not None:
+            num = max(num, int(cols.get(qn("w:num")) or 1))
+    check("页面", "期刊版式：%d 栏" % num, num >= 2, "单栏不符合期刊要求")
+
+
+def _has_two_columns(doc):
+    for sec in doc.sections:
+        cols = sec._sectPr.find(qn("w:cols"))
+        if cols is not None and int(cols.get(qn("w:num")) or 1) > 1:
+            return True
+    return False
+
+
+def check_journal(doc):
+    """《农业工程学报》风格期刊稿：双栏、页眉、图表题中英对照、细三线表。"""
+    check("期刊", "正文为双栏排版（w:cols num=2）", _has_two_columns(doc),
+          "未检测到多栏节")
+
+    sec = doc.sections[0]
+    hdr = " ".join(p.text for p in sec.header.paragraphs)
+    hdr_flat = hdr.replace(" ", "").replace("\u3000", "")
+    check("期刊", "页眉含刊名与英文刊名",
+          "农业工程学报" in hdr_flat and "Transactions of the Chinese Society" in hdr,
+          hdr.strip()[:60])
+    check("期刊", "页眉含卷期与年份",
+          ("第" in hdr and "Vol." in hdr), hdr.strip()[:60])
+
+    # 图表题中英对照
+    paras = list(_all_paragraphs(doc))
+    caps_zh = [p.text.strip() for p in paras
+               if re.match(r"^(图|表)\s*\d", p.text.strip())]
+    caps_en = [p.text.strip() for p in paras
+               if re.match(r"^(Fig\.|Table)\s*\d", p.text.strip())]
+    check("期刊", "图表题中英对照（图N/表N + Fig./Table）",
+          len(caps_en) >= len(caps_zh), "中文题 %d 条 / 英文题 %d 条"
+          % (len(caps_zh), len(caps_en)))
+
+    # 三线表线宽：期刊用 0.75 / 0.5 pt
+    thin = []
+    for tbl in doc.tables:
+        tblPr = tbl._tbl.find(qn("w:tblPr"))
+        borders = tblPr.find(qn("w:tblBorders")) if tblPr is not None else None
+        if borders is None:
+            continue
+        sz = {e.tag.split("}")[-1]: a(e, "sz") for e in borders}
+        if sz.get("top") not in (None, "6"):
+            thin.append("顶线 sz=%s" % sz.get("top"))
+    check("期刊", "三线表顶/底线 0.75 pt（sz=6）", not thin, "；".join(thin[:3]))
+
+    # 摘要字号 9 pt、正文 10 pt
+    body_sizes = {r.font.size.pt for p in _all_paragraphs(doc) for r in p.runs
+                  if r.font.size is not None}
+    try:
+        normal_size = doc.styles["Normal"].font.size
+        if normal_size is not None:
+            body_sizes.add(normal_size.pt)     # 正文常用样式继承，不显式设字号
+    except KeyError:
+        pass
+    check("期刊", "正文字号 10 pt 出现在正文中", 10.0 in body_sizes,
+          "实测字号：%s" % sorted(body_sizes)[:6])
+
+
 def check_citations(doc):
     """GB/T 7714—2015 顺序编码制：正文标注用上标方括号数字，编号与文后条目对应。"""
     refs = [p for p in _all_paragraphs(doc) if _REF_ENTRY.match(p.text or "")]
@@ -1073,8 +1148,13 @@ def main(argv=None):
     ap.add_argument("--pdf", help="同时体检导出的 PDF")
     ap.add_argument("--spec", help="与 build_docx.py 同一份 spec 覆盖（整体换配色/字号后用它校准期望值）")
     ap.add_argument("--strict", action="store_true", help="警告也视为失败")
+    ap.add_argument("--profile", choices=["thesis", "csae"], default=None,
+                    help="排版模板：thesis=学位论文（默认）；csae=农业工程学报期刊稿")
     args = ap.parse_args(argv)
 
+    global PROFILE
+    if args.profile:
+        PROFILE = args.profile
     if args.spec:
         apply_spec(args.spec)
 
@@ -1089,33 +1169,46 @@ def main(argv=None):
         COUNTS[key] = 0
 
     doc = Document(path)
-    check_page(doc)
-    check_settings(doc)
-    check_styles(doc)
-    check_body_paragraphs(doc)
-    check_lists(doc)
-    check_headers_footers(doc)
-    check_tables_and_captions(doc)
-    check_figures(doc)
-    check_equations(doc)
-    check_toc(doc)
-    check_heading_levels(doc)
-    check_references(doc)
-    check_crossrefs(doc)
-    check_runs_fonts(doc)
-    check_blank_pages(doc)
-    check_placeholders(doc)
-    check_ai_tone(path)
-    check_standard_figures(doc)
-    check_standard_tables(doc)
-    check_note_period(doc)
-    check_caption_before_content(doc)
-    check_front_matter_order(doc)
-    check_para_shading(doc)
-    check_citations(doc)
-    check_table_precision(doc)
-    check_palette(doc)
-    check_figure_quality(doc)
+    if PROFILE == "csae":
+        check_paper_a4(doc)
+        check_journal(doc)
+        check_standard_tables(doc)
+        check_note_period(doc)
+        check_citations(doc)
+        check_table_precision(doc)
+        check_standard_figures(doc)
+        check_figure_quality(doc)
+        check_placeholders(doc)
+        check_ai_tone(path)
+        check_blank_pages(doc)
+    else:
+        check_page(doc)
+        check_settings(doc)
+        check_styles(doc)
+        check_body_paragraphs(doc)
+        check_lists(doc)
+        check_headers_footers(doc)
+        check_tables_and_captions(doc)
+        check_figures(doc)
+        check_equations(doc)
+        check_toc(doc)
+        check_heading_levels(doc)
+        check_references(doc)
+        check_crossrefs(doc)
+        check_runs_fonts(doc)
+        check_blank_pages(doc)
+        check_placeholders(doc)
+        check_ai_tone(path)
+        check_standard_figures(doc)
+        check_standard_tables(doc)
+        check_note_period(doc)
+        check_caption_before_content(doc)
+        check_front_matter_order(doc)
+        check_para_shading(doc)
+        check_citations(doc)
+        check_table_precision(doc)
+        check_palette(doc)
+        check_figure_quality(doc)
 
     if args.pdf:
         try:

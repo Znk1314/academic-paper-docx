@@ -538,3 +538,66 @@ def test_citation_renders_as_superscript(basic_model, tmp_path):
     sups = [r.text for r in para.runs if r.font.superscript]
     assert "[2,3]" in sups and "[4-6]" in sups, sups
     assert "[[2,3]]" not in para.text
+
+
+# ---------------------------------------------------------------- 期刊模板
+
+JOURNAL_MODEL = {
+    "profile": "csae",
+    "title_en": "A test paper title",
+    "authors": ["张三", "李四"],
+    "author_sup": {"张三": "1"},
+    "affiliations": ["1. 示例大学，北京 100083"],
+    "authors_en": ["ZHANG San"],
+    "affiliations_en": ["1. Example University, Beijing 100083, China"],
+    "journal": {"volume": "41", "issue": "15", "year": "2025", "month": "8",
+                "doi": "10.1/abc", "clc": "S126", "doc_code": "A",
+                "article_no": "1002-6819(2025)-15-0098-09", "cite_zh": "引用格式"},
+    "meta": {"title": "测试期刊稿"},
+    "abstract": {"paragraphs": ["中文摘要。"], "keywords": ["甲", "乙"]},
+    "abstract_en": {"paragraphs": ["English abstract."], "keywords": ["a"]},
+    "sections": [
+        {"level": 1, "text": "0　引　言"},
+        {"type": "p", "text": "已有研究[[1]]。"},
+        {"level": 2, "text": "1.1　方法"},
+        {"type": "p", "text": "方法描述。"},
+    ],
+    "references": ["甲. 文献[J]. 刊名, 2020, 1(2): 3-4."],
+}
+
+
+def test_journal_profile_sets_two_columns(tmp_path):
+    """期刊模板：正文节为双栏。"""
+    _, path = db.build_journal_from_model(JOURNAL_MODEL, str(tmp_path / "j.docx"))
+    doc = Document(path)
+    nums = []
+    for sec in doc.sections:
+        cols = sec._sectPr.find(qn("w:cols"))
+        nums.append(int(cols.get(qn("w:num")) or 1) if cols is not None else 1)
+    assert max(nums) == 2, nums
+
+
+def test_journal_profile_header_and_fonts(tmp_path):
+    """页眉含刊名与卷期；中文标题黑体 18 pt。"""
+    _, path = db.build_journal_from_model(JOURNAL_MODEL, str(tmp_path / "j2.docx"))
+    doc = Document(path)
+    hdr = " ".join(p.text for p in doc.sections[0].header.paragraphs)
+    assert "农 业 工 程 学 报" in hdr or "农业工程学报" in hdr.replace(" ", "")
+    assert "Vol.41" in hdr
+    title = doc.paragraphs[0]
+    assert "测试期刊稿" in title.text
+    assert abs(title.runs[0].font.size.pt - 18.0) < 0.1
+
+
+def test_journal_profile_caption_english_on_new_line(tmp_path):
+    """期刊模板：图表题英文另起一行（Fig./Table）。"""
+    model = dict(JOURNAL_MODEL)
+    model["sections"] = list(JOURNAL_MODEL["sections"]) + [
+        {"type": "table", "caption": "示例表", "caption_en": "Example table",
+         "headers": ["A"], "rows": [["1"]]},
+    ]
+    _, path = db.build_journal_from_model(model, str(tmp_path / "j3.docx"))
+    doc = Document(path)
+    texts = [p.text.strip() for p in doc.paragraphs]
+    assert any(t.startswith("表1\u3000示例表") for t in texts)
+    assert any(t.startswith("Table 1") for t in texts)

@@ -7,6 +7,15 @@
 
 ### Added
 
+- **期刊模板 `--profile csae`（农业工程学报）**：参数实测自 4 篇该刊论文
+  （A4 双栏、栏宽 8.66 cm、标题黑体 18 pt、作者仿宋 14 pt、摘要 9 pt、
+  一级标题黑体 11 pt 无装饰线、图题楷体 9 pt、表题黑体 9 pt、三线表 0.75/0.5 pt、
+  奇偶页页眉含刊名卷期、页码在页眉）
+  - 新增 `JournalBuilder` + `CSAE_SPEC` + `build_journal_from_model`
+  - 内容模型新增 `journal` / `title_en` / `authors` / `affiliations` /
+    `abstract_en` 等字段；`examples/journal_csae/` 为完整样例
+  - `build` / `qa` 均支持 `--profile`
+  - qa 期刊分支检查：双栏、页眉刊名与卷期、图表题中英对照、三线表 0.75 pt、正文字号
 - **正文引文标注（GB/T 7714—2015 顺序编码制）**：段落里写 `[[1]]`、`[[2,3]]`、`[[4-6]]`，
   渲染为**上标方括号**；qa 新增三项检查——标注必须为上标、编号不超出文后条目数、
   每条文献都被引用、条目含文献类型标识（[J]/[M]/[C]/[EB/OL]…）
