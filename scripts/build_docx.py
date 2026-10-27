@@ -57,7 +57,8 @@ def main(argv=None):
             overrides = json.load(fh)
 
     out = args.output or os.path.splitext(model_path)[0] + ".docx"
-    profile = args.profile or model.get("profile") or "thesis"
+    profile, reason = docx_builder.resolve_profile(model, args.profile)
+    print("模板：%s（%s）" % (profile, reason))
     if profile == "csae":
         builder, path = docx_builder.build_journal_from_model(
             model, out, overrides, base_dir=os.path.dirname(model_path))

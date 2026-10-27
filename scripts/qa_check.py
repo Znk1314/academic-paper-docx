@@ -1149,12 +1149,15 @@ def main(argv=None):
     ap.add_argument("--spec", help="与 build_docx.py 同一份 spec 覆盖（整体换配色/字号后用它校准期望值）")
     ap.add_argument("--strict", action="store_true", help="警告也视为失败")
     ap.add_argument("--profile", choices=["thesis", "csae"], default=None,
-                    help="排版模板：thesis=学位论文（默认）；csae=农业工程学报期刊稿")
+                    help="排版模板：thesis=单栏学位/报告；csae=双栏期刊稿。"
+                         "省略时按文档是否为双栏自动识别")
     args = ap.parse_args(argv)
 
     global PROFILE
     if args.profile:
         PROFILE = args.profile
+    else:
+        PROFILE = "thesis"      # 先复位；打开文档后再按结构识别
     if args.spec:
         apply_spec(args.spec)
 
@@ -1169,6 +1172,8 @@ def main(argv=None):
         COUNTS[key] = 0
 
     doc = Document(path)
+    if not args.profile and _has_two_columns(doc):
+        PROFILE = "csae"        # 双栏文档自动按期刊模板检查
     if PROFILE == "csae":
         check_paper_a4(doc)
         check_journal(doc)

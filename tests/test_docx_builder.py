@@ -601,3 +601,39 @@ def test_journal_profile_caption_english_on_new_line(tmp_path):
     texts = [p.text.strip() for p in doc.paragraphs]
     assert any(t.startswith("表1\u3000示例表") for t in texts)
     assert any(t.startswith("Table 1") for t in texts)
+
+
+# ---------------------------------------------------------------- 模板判定
+
+def test_resolve_profile_thesis_hints():
+    """毕业设计（论文）含"论文"二字，仍必须判为单栏学位论文模板。"""
+    for doc_type in ("本科毕业设计（论文）", "硕士学位论文", "课程报告", "研究报告", "开题报告"):
+        profile, reason = db.resolve_profile({"meta": {"doc_type": doc_type}})
+        assert profile == "thesis", (doc_type, profile, reason)
+
+
+def test_resolve_profile_journal_hints():
+    for doc_type in ("期刊论文", "学术论文", "投稿稿件", "学报论文"):
+        profile, _ = db.resolve_profile({"meta": {"doc_type": doc_type}})
+        assert profile == "csae", doc_type
+
+
+def test_resolve_profile_bare_paper_defaults_two_column():
+    profile, reason = db.resolve_profile({"meta": {"doc_type": "论文", "title": "某方法"}})
+    assert profile == "csae" and "论文" in reason
+
+
+def test_resolve_profile_priority():
+    # journal 块优先于 doc_type
+    profile, _ = db.resolve_profile({"meta": {"doc_type": "毕业论文"},
+                                     "journal": {"volume": "41"}})
+    assert profile == "csae"
+    # 显式 --profile 最高优先
+    profile, _ = db.resolve_profile({"profile": "csae",
+                                     "meta": {"doc_type": "毕业论文"}}, "thesis")
+    assert profile == "thesis"
+
+
+def test_resolve_profile_unknown_falls_back_single_column():
+    profile, _ = db.resolve_profile({"meta": {"doc_type": "技术方案说明书"}})
+    assert profile == "thesis"

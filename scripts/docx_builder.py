@@ -1979,6 +1979,51 @@ def enable_even_odd_headers(doc):
         settings.append(el)
 
 
+# 任务类型 → 模板的判定关键词。
+# 学位/报告类优先匹配（含"论文"二字，如"毕业设计（论文）"，不能误判成期刊稿）
+THESIS_HINTS = ("毕业设计", "毕业论文", "学位论文", "开题", "结题", "课程报告",
+                "课程设计", "研究报告", "实验报告", "调研报告", "学位", "thesis",
+                "dissertation")
+JOURNAL_HINTS = ("期刊", "学报", "投稿", "学术论文", "期刊论文", "研究论文",
+                 "journal", "transactions", "csae", "paper")
+
+
+def resolve_profile(model, explicit=None):
+    """决定用哪套模板。返回 (profile, reason)。
+
+    优先级：
+      1. 命令行 / 调用方显式指定 `--profile`；
+      2. 内容模型里的 `"profile"` 字段；
+      3. 模型带 `journal` 块（有刊名卷期 doi）→ 期刊稿；
+      4. 按 `meta.doc_type` / `meta.title` 关键词判定：
+         先匹配学位与报告类（"毕业设计""学位论文""课程报告"…）→ thesis，
+         再匹配期刊类（"期刊""学报""投稿""学术论文"）→ csae；
+      5. 只写了"论文" → csae（默认按双栏期刊稿）；
+      6. 其它 → thesis（单栏）。
+    """
+    if explicit:
+        return explicit, "命令行 --profile"
+    own = str(model.get("profile") or "").strip().lower()
+    if own in ("thesis", "csae"):
+        return own, "内容模型的 profile 字段"
+
+    if model.get("journal"):
+        return "csae", "模型含 journal 字段（刊名/卷期/doi）"
+
+    meta = model.get("meta") or {}
+    text = " ".join(str(meta.get(k, "")) for k in ("doc_type", "title", "subtitle"))
+    text = (text + " " + str(model.get("title", ""))).lower()
+    for kw in THESIS_HINTS:
+        if kw in text:
+            return "thesis", "任务类型含“%s”" % kw
+    for kw in JOURNAL_HINTS:
+        if kw in text:
+            return "csae", "任务类型含“%s”" % kw
+    if "论文" in text:
+        return "csae", "只写了“论文”，默认按期刊稿（双栏）"
+    return "thesis", "未识别为论文，按学位/报告模板（单栏）"
+
+
 def build_journal_from_model(model, out_path, spec_overrides=None, base_dir=None):
     builder = JournalBuilder(spec_overrides, base_dir=base_dir)
     path = builder.build_journal(model, out_path)
