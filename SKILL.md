@@ -454,7 +454,14 @@ python <SKILL_DIR>/scripts/figures.py spec.json -o f.png --palette rose6
 python <SKILL_DIR>/scripts/apd.py tone --docx work/report.docx
 python <SKILL_DIR>/scripts/apd.py tone --docx work/report.docx --audit    # 审计清单
 python <SKILL_DIR>/scripts/apd.py tone --json work/content.json --max-score 40   # CI 门禁
+
+# 基金本子（Layer 6）：结构 + aims 质量 + 主张↔可行性
+python <SKILL_DIR>/scripts/apd.py tone --text aims.md --mode proposal --agency nih
 ```
+
+**Layer 6 只查结构性问题**（P1 结构缺失、P2 aims 数量、P3 方法当目标、P4 多米诺依赖、
+P5 雄心缺可行性、P6 中心假设含糊、P7 Broader Impacts 模板化）；
+"这个 aim 值不值得做"仍需人判断。
 
 改稿时守三条：**数字/公式/引用不许改**；**有证据的模糊限制必须保留**（把 suggest 改成
 prove 是制造过度断言）；**主张必须落到数字/图/表/引用**。

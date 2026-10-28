@@ -520,7 +520,14 @@ TOC 域、页眉页脚域、参考文献缩进、交叉引用、字体白名单�
 python scripts/apd.py tone --docx work/report.docx            # 审计：两分数 + 命中清单
 python scripts/apd.py tone --docx work/report.docx --audit    # 只要清单（层/编号/位置/改法）
 python scripts/apd.py tone --json work/content.json --max-score 40   # CI 门禁
+
+# 基金本子（Layer 6）：NSF/NIH 结构 + aims 质量 + 主张↔可行性
+python scripts/apd.py tone --text examples/proposal/aims_bad.md --mode proposal
 ```
+
+Layer 6 检查项：P1 结构缺失、P2 aims 数量、P3 方法当目标、P4 多米诺依赖、
+P5 雄心缺可行性、P6 中心假设含糊、P7 Broader Impacts 模板化。示例见
+[examples/proposal/](examples/proposal/)（`aims_bad.md` 会报 P3/P5/P6，`aims_good.md` 通过）。
 
 两个分数（对应层）：
 

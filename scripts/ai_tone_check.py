@@ -243,6 +243,108 @@ CLAIM_RULES: list[Rule] = [
     ),
 ]
 
+# —— Layer 6：基金本子（结构 + 弱招），靠结构判断，不是逐句正则
+PROPOSAL_MARKERS = {
+    "nsf": {
+        "label": "NSF",
+        "structure": [("Project Summary", r"project\s*summary|项目摘要"),
+                      ("Overview", r"overview|概述"),
+                      ("Intellectual Merit", r"intellectual\s*merit|智力价值|学术价值"),
+                      ("Broader Impacts", r"broader\s*impacts|广泛影响|社会影响")],
+    },
+    "nih": {
+        "label": "NIH",
+        "structure": [("Specific Aims", r"specific\s*aims|具体目标"),
+                      ("Significance", r"significance|意义"),
+                      ("Innovation", r"innovation|创新"),
+                      ("Approach", r"approach|研究方案")],
+    },
+}
+AIM_RE = re.compile(r"(?:Aim|Thrust|目标)\s*[0-9一二三四五六]?\s*[：:]")
+METHOD_AIM_RE = re.compile(
+    r"(?:Aim|Thrust|目标)\s*[0-9一二三四五六]?\s*[：:]\s*"
+    r"(?:应用|采用|使用|引入|构建|开发|实现|搭建)\S{0,16}(?:方法|模型|算法|框架|系统|平台)")
+DOMINO_RE = re.compile(
+    r"(?:若|如果|一旦|如)\s*(?:Aim|目标)\s*[0-9一二三]"
+    r"(?:\s*(?:与|和|及|、)\s*(?:Aim|目标)?\s*[0-9一二三])?\s*(?:成功|顺利|完成)"
+    r"|(?:Aim|目标)\s*2\s*(?:依赖|基于)\s*(?:Aim|目标)\s*1")
+HEDGED_HYPOTHESIS_RE = re.compile(
+    r"(?:central\s*hypothesis|中心假设)[^。；！？]{0,40}"
+    r"(?:explore|whether|可能|或许|探索|是否)")
+FEASIBILITY_RE = re.compile(
+    r"前期|初步|已有|已获|已发表|预实验|pilot|preliminary|prior\s+work|"
+    r"Fig\.?\s*\d|图\s*\d|letter|支持信|合作|团队")
+AMBITION_RE = re.compile(r"首次|突破|颠覆|填补空白|有望|变革性|transformative|pioneer")
+BOILERPLATE_BI_RE = re.compile(r"(?:传播|宣讲|推广|科普|培养学生|开设课程)")
+
+
+def _paras_text(paragraphs: list[tuple[str, bool]]) -> tuple[str, list[str]]:
+    rows = [t for t, h in paragraphs if not h]
+    return "\n".join(rows), rows
+
+
+def analyze_proposal(paragraphs: list[tuple[str, bool]],
+                     kind: str | None = None) -> dict:
+    """Layer 6：查结构完整性、aims 质量与「主张 ↔ 可行性」。
+
+    kind: "nsf" / "nih"；None 时按文中出现的标记自动判断。
+    """
+    text, rows = _paras_text(paragraphs)
+    if kind is None:
+        kind = "nih" if re.search(r"specific\s*aims|具体目标", text, re.I) else "nsf"
+    spec = PROPOSAL_MARKERS[kind]
+
+    issues: list[tuple[str, str, str]] = []
+    missing = [name for name, pat in spec["structure"]
+               if not re.search(pat, text, re.I)]
+    # Aims 页只承载 Aims；Significance/Innovation/Approach 属正文，不作缺失项
+    aims_page = bool(re.search(r"specific\s*aims|具体目标", text, re.I))
+    if kind == "nih" and aims_page:
+        missing = [m for m in missing
+                   if m not in ("Significance", "Innovation", "Approach")]
+    if missing:
+        issues.append(("P1", "结构不完整",
+                       "%s 缺少：%s" % (spec["label"], "、".join(missing))))
+
+    aims = AIM_RE.findall(text)
+    n_aims = len(aims) if isinstance(aims, list) else 0
+    if aims and not (2 <= n_aims <= 3):
+        issues.append(("P2", "aims 数量异常",
+                       "检测到 %d 个 aim，NSF/NIH 通常 2—3 个" % n_aims))
+
+    method_aims = METHOD_AIM_RE.findall(text)
+    if method_aims:
+        issues.append(("P3", "方法当目标",
+                       "%d 处 aim 以方法动词开头（应用/采用/构建…），应改为问题或结果导向"
+                       % len(method_aims)))
+
+    if DOMINO_RE.search(text):
+        issues.append(("P4", "aims 有多米诺依赖",
+                       "Aim 之间出现“若 Aim 1 成功”式依赖；应写成平行、各自可交付"))
+
+    if HEDGED_HYPOTHESIS_RE.search(text):
+        issues.append(("P6", "中心假设含糊",
+                       "中心假设处出现“探索/是否/可能”；中心假设应可证伪"))
+
+    # P5：雄心句附近 40 字内无可行性证据
+    weak = []
+    for m in AMBITION_RE.finditer(text):
+        window = text[max(0, m.start() - 40): m.end() + 40]
+        if not FEASIBILITY_RE.search(window):
+            weak.append(text[max(0, m.start() - 12): m.end() + 12].replace("\n", " "))
+    if weak:
+        issues.append(("P5", "雄心缺可行性支撑",
+                       "%d 处大胆主张周边无前期数据/前期工作/合作方证据：%s"
+                       % (len(weak), "；".join(weak[:2]))))
+
+    if BOILERPLATE_BI_RE.search(text) and not re.search(r"\d", text):
+        issues.append(("P7", "Broader Impacts 模板化",
+                       "出现传播/宣讲/培养学生，但全文无具体数字或名称"))
+
+    return {"kind": kind, "label": spec["label"], "issues": issues,
+            "aims": len(aims) if isinstance(aims, list) else 0}
+
+
 ALL_RULES = TELL_RULES + ACADEMIC_RULES + CLAIM_RULES
 RULE_BY_ID = {r.id: r for r in ALL_RULES}
 
@@ -505,6 +607,23 @@ def render(report: Report) -> str:
     return "\n".join(lines)
 
 
+def render_proposal(result: dict) -> str:
+    label = result.get("label", "?")
+    lines = ["【Layer 6 基金本子（%s）】" % label,
+             "  检测到 aim：%d 个" % result.get("aims", 0)]
+    issues = result.get("issues") or []
+    if not issues:
+        lines.append("  OK   结构、aims 与可行性未见可自动判定的问题")
+        lines.append("  仍需人工核对：中心假设是否可证伪、每个 aim 是否独立可交付、"
+                     "团队记录是否真实（绝不编造资助/结果/伙伴/推荐信）")
+        return "\n".join(lines)
+    for rid, title, detail in issues:
+        lines.append("  WARN [%s] %s" % (rid, title))
+        lines.append("        %s" % detail)
+    lines.append("  改法：按 references/anti-ai-academic-zh.md Layer 6.2—6.5 逐条补齐")
+    return "\n".join(lines)
+
+
 def render_audit(report: Report) -> str:
     """Audit 模式：一行一条，便于逐条处理。"""
     if not report.hits:
@@ -529,6 +648,10 @@ def main(argv=None):
     ap.add_argument("--json-out", action="store_true", help="以 JSON 输出")
     ap.add_argument("--audit", action="store_true",
                     help="只输出审计清单（层/编号/类型/位置/改法）")
+    ap.add_argument("--mode", choices=["paper", "proposal"], default="paper",
+                    help="paper=论文（默认）；proposal=基金本子（追加 Layer 6 检查）")
+    ap.add_argument("--agency", choices=["nsf", "nih"], default=None,
+                    help="proposal 模式下指定机构；省略则自动判断")
     args = ap.parse_args(argv)
 
     if args.docx:
@@ -539,7 +662,9 @@ def main(argv=None):
         paragraphs, name = collect_paragraphs_text(args.text)
 
     report = analyze(paragraphs, name)
-    if not report.chars:
+    proposal = (analyze_proposal(paragraphs, args.agency)
+                if args.mode == "proposal" else None)
+    if not report.chars and not (proposal and proposal["issues"]):
         print("没有可分析的正文段落（检查输入文件）", file=sys.stderr)
         return 2
 
@@ -553,12 +678,20 @@ def main(argv=None):
             "chars": report.chars,
             "sentences": report.sentences,
             "metrics": report.metrics,
+            "mode": args.mode,
+            "proposal": proposal,
             "hits": [h.__dict__ for h in report.hits],
         }, ensure_ascii=False, indent=2))
     elif args.audit:
         print(render_audit(report))
+        if proposal:
+            print()
+            print(render_proposal(proposal))
     else:
         print(render(report))
+        if proposal:
+            print()
+            print(render_proposal(proposal))
 
     if args.max_score is not None and report.score > args.max_score:
         print("\n超过阈值 %d（实际 %d）。" % (args.max_score, report.score),

@@ -5,6 +5,15 @@
 
 ## [Unreleased]
 
+### Added
+
+- **Layer 6 基金本子检查（`--mode proposal`）**：结构完整性（NSF 四段 / NIH Aims 页）、
+  aims 数量、方法当目标、多米诺依赖、雄心缺可行性、中心假设含糊、Broader Impacts 模板化；
+  `--agency nsf|nih` 可指定机构，省略则自动判断
+- 示例：`examples/proposal/aims_bad.md`（报 P3/P5/P6）与 `aims_good.md`（通过）
+- **全部示例用新版本重生成**：学位论文 demo（56 项通过）、期刊稿 csae（23 项通过）、
+  7 张预览截图 + PDF 均按当前代码重出
+
 ### Changed
 
 - **文风检测改为完整采用 [academic-humanizer](https://github.com/AIScientists-Dev/academic-humanizer)
