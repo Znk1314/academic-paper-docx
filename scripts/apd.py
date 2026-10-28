@@ -131,6 +131,10 @@ def cmd_tone(args):
         argv += ["--max-score", str(args.max_score)]
     if getattr(args, "audit", False):
         argv += ["--audit"]
+    if getattr(args, "mode", None):
+        argv += ["--mode", args.mode]
+    if getattr(args, "agency", None):
+        argv += ["--agency", args.agency]
     if args.json_out:
         argv += ["--json-out"]
     return ai_tone_check.main(argv)
@@ -392,6 +396,10 @@ def build_parser():
     src.add_argument("--text", help="纯文本 / Markdown")
     p.add_argument("--audit", action="store_true",
                    help="只输出审计清单（层/编号/类型/位置/改法）")
+    p.add_argument("--mode", choices=["paper", "proposal"], default=None,
+                   help="paper=论文（默认）；proposal=基金本子，追加 Layer 6 检查")
+    p.add_argument("--agency", choices=["nsf", "nih"], default=None,
+                   help="proposal 模式下指定机构，省略则自动判断")
     p.add_argument("--max-score", type=int, default=None,
                    help="超过该分数时退出码 1（CI 门禁用）")
     p.add_argument("--json-out", action="store_true", help="机器可读输出")
