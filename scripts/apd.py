@@ -127,11 +127,10 @@ def cmd_tone(args):
         argv += ["--json", args.json]
     else:
         argv += ["--text", args.text]
-    for flag, val in (("--max-score", getattr(args, "max_score", None)),
-                      ("--max-register", getattr(args, "max_register", None)),
-                      ("--max-defensive", getattr(args, "max_defensive", None))):
-        if val is not None:
-            argv += [flag, str(val)]
+    if getattr(args, "max_score", None) is not None:
+        argv += ["--max-score", str(args.max_score)]
+    if getattr(args, "audit", False):
+        argv += ["--audit"]
     if args.json_out:
         argv += ["--json-out"]
     return ai_tone_check.main(argv)
@@ -386,15 +385,13 @@ def build_parser():
         p.add_argument("--palette", help="主题色卡（rose6/spectral8/... 或用 apd palette 查看）")
         p.set_defaults(func=cmd_figure)
 
-    p = sub.add_parser("tone", help="检测正文的「AI 味」（只报警，不改稿）")
+    p = sub.add_parser("tone", help="学术文风审计（academic-humanizer 逻辑，只报警）")
     src = p.add_mutually_exclusive_group(required=True)
     src.add_argument("--docx", help="已生成的 .docx")
     src.add_argument("--json", help="内容模型 content.json")
     src.add_argument("--text", help="纯文本 / Markdown")
-    p.add_argument("--max-register", type=int, default=None,
-                   help="语体分阈值（越大白越大）")
-    p.add_argument("--max-defensive", type=int, default=None,
-                   help="防御性分阈值（越防御越大）")
+    p.add_argument("--audit", action="store_true",
+                   help="只输出审计清单（层/编号/类型/位置/改法）")
     p.add_argument("--max-score", type=int, default=None,
                    help="超过该分数时退出码 1（CI 门禁用）")
     p.add_argument("--json-out", action="store_true", help="机器可读输出")

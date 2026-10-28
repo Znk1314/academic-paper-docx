@@ -1,27 +1,25 @@
 #!/usr/bin/env python
-"""启发式「AI 味」检测：只给段落级证据，不改稿。
+"""学术文风审计：按 academic-humanizer 的逻辑查 AI 痕迹与「主张-证据」不匹配。
 
-规则编号与 `references/anti-ai-academic-zh.md` 一一对应：
+逻辑来源（MIT 许可）：https://github.com/AIScientists-Dev/academic-humanizer
+—— Layer 1 通用 AI 痕迹、Layer 2 学术 AI 痕迹（2.1–2.11）、Layer 3 保留清单、
+Layer 4 主张-证据纪律、Layer 5 语体匹配、Layer 6 基金本子模式。
+本文件只做**可枚举部分的审计**，不代替人工判断，也绝不改稿。
 
-    S2.1 空转的意义句        S2.2 数据缺席的拔高     S2.3 假对比与假递进
-    S2.4 段落末尾复述收尾    A2.5 起跑式铺垫/元话语   A2.6 连接词铺路
-    A2.7 句长均匀            B2.9 名词化与"进行+动词" B2.10 无主被动
-    B2.11 四字排比           S2.12 引用装饰/借权威    A3.1 段落首句复读标题
-    A3.4 全文零数字
-
-设计取舍（重要）：
-
-* **只报警，不判身份**：分数高不等于 AI 写的，模板化公文、翻译腔同样会高分。
-* **词表不是黑名单**：每条命中都要回到上下文；文档 §4 的学术豁免（方法段被动句、
-  术语化名词化、必要限定、引用格式）默认不报。
-* **数据可以压倒拔高**：同一句里带数字/百分比/对比时，S2.2 不报。
-* **引用与引语先剥离**：`[3]`、"…"、「…」、`code` 里的内容不参与匹配。
+四步流程（与上游一致）：
+  Read（读稿、认文体）→ Audit（列出命中位置与改法，不改）→
+  Rewrite（由人或 agent 改）→ Report（改动清单）
 
 用法：
 
     python scripts/ai_tone_check.py --docx out/report.docx
-    python scripts/ai_tone_check.py --json examples/demo/content_model.json
-    python scripts/ai_tone_check.py --text draft.md --max-score 40   # 超阈值退出码 1
+    python scripts/ai_tone_check.py --json work/content.json --audit
+    python scripts/ai_tone_check.py --text draft.md --max-score 40
+
+输出：按图层分组的问题清单（类型 + 段落号 + 原句 + 改法）+ 两个分数：
+  tells  —— AI 痕迹密度（Layer 1 + 2）
+  claims —— 主张强于证据的程度（Layer 4）
+两者都低才算合格；分数只用于定位，不判断作者身份。
 """
 
 from __future__ import annotations
@@ -34,132 +32,227 @@ import statistics
 import sys
 from dataclasses import dataclass, field
 
-HERE = os.path.dirname(os.path.abspath(__file__))
-if HERE not in sys.path:
-    sys.path.insert(0, HERE)
-
-import _console  # noqa: E402
-
-# ---------------------------------------------------------------- 规则表
+import _console
 
 CJK = r"\u4e00-\u9fa5"
 _NUM = r"\d+(?:\.\d+)?"
 
 
+# ---------------------------------------------------------------- 规则
+
 @dataclass
 class Rule:
     id: str
-    level: str          # S / A / B
+    layer: str          # "T1" 通用痕迹 / "T2" 学术痕迹 / "C" 主张-证据
     title: str
     pattern: str
     advice: str
     weight: int
-    # True 时：命中句里若含数字/百分比则视为"有数据"，不报（S2.2 用）
+    # True：句中含数字/百分比即视为"有证据"，不报（Layer 3 保留）
     needs_no_number: bool = False
-    # True 时：只在该段最后一句命中才算（S2.4 用）
+    # True：只在该段最后一句命中才算（收尾套话）
     paragraph_final: bool = False
-    # True 时：结构级规则，不参与逐句正则匹配（A2.7 / A3.1 / A3.4）
-    structural: bool = False
 
 
-RULES: list[Rule] = [
+TELL_RULES: list[Rule] = [
     Rule(
-        "S2.1", "S", "空转的意义句",
-        r"具有(?:重要|深远|重大)?的?(?:理论|现实|实践)?(?:意义|价值|作用)"
-        r"|广阔的?(?:应用)?前景|提供了?(?:新的|有益的)?(?:思路|参考|借鉴|方向)"
-        r"|奠定了?坚实的基础|具有一定的?指导意义",
-        "换成这个结论真正约束了什么（对谁、在什么条件下、限制了什么）",
-        6,
+        "T1.1", "T1", "意义拔高",
+        r"标志(?:着|了)?(?:一个)?(?:重要|全新|关键)?的?(?:转折|里程碑|新阶段)|"
+        r"具有(?:重要|深远|重大)?的?(?:理论|现实|实践)?(?:意义|价值|作用)|"
+        r"奠定了?坚实的基础|划时代",
+        "删掉评价，写清这个方法约束了什么、改变了哪个结论",
+        4,
     ),
     Rule(
-        "S2.2", "S", "数据缺席的拔高",
-        rf"(?:显著|大幅|有效|明显|极大)地?(?:提升|提高|改善|增强|降低|减少|缩短)"
-        rf"|性能优异|效果良好|取得了?(?:良好|显著|丰硕)的?(?:效果|成果|进展)"
-        rf"|{CJK}{{0,6}}表现(?:优异|突出)",
-        "补上指标、数值、对比对象、条件中的至少两项；没有数据就写\"尚未量化\"",
-        6,
+        "T1.2", "T1", "假深度的尾巴",
+        r"[，,]\s*(?:从而|进而)?(?:凸显|彰显|体现|展现出?|揭示了?)(?:了)?(?:其|该|这一|这种)?"
+        r"(?:重要|巨大|独特|深远)?的?(?:价值|潜力|优势|作用|意义)",
+        "句尾补一句“这说明了什么”通常没信息；删掉或换成具体结论",
+        3,
+    ),
+    Rule(
+        "T1.3", "T1", "宣传化用词",
+        r"赋能|助力|深耕|沉淀|护航|闭环|抓手|护城河|颠覆|革命性|璀璨|堪称",
+        "换中性词：赋能→支持；助力→帮助；深耕→长期研究；闭环→反馈机制",
+        3,
+    ),
+    Rule(
+        "T1.4", "T1", "无来源的权威",
+        r"(?:专家|学者|业界|业内|研究表明|有研究指出)\S{0,6}(?:认为|指出|表示|发现)",
+        "给引用编号；给不出就删掉这句权威背书",
+        4,
+    ),
+    Rule(
+        "T1.5", "T1", "AI 高频空词",
+        r"深入(?:探讨|剖析|挖掘)|多维(?:度)?|全链路|系统性(?:地)?(?:解决|提升)|"
+        r"深度赋能|全方位|极大地|强有力地",
+        "换成具体动作与对象：深入探讨→分析 X 的哪一步",
+        2,
+    ),
+    Rule(
+        "T1.6", "T1", "回避系动词",
+        r"作为(?:一个)?(?:重要|关键|核心)的?(?:组成|环节|部分|载体)|充当着|"
+        r"扮演着?(?:重要)?角色",
+        "直接写“是/属于”：X 是 Y 的一部分",
+        2,
+    ),
+    Rule(
+        "T1.7", "T1", "否定式排比",
+        r"不仅(?:仅)?是[^。；！？]{2,30}(?:更是|而且是|也是)|不是[^。；！？]{2,20}而是",
+        "除非真在纠正一个误解，否则直接说它是什么",
+        2,
+    ),
+    Rule(
+        "T1.8", "T1", "三项式凑数",
+        r"(?:(?:快速|准确|稳定|高效|可靠|灵活)(?:、|，)){2}"
+        r"(?:快速|准确|稳定|高效|可靠|灵活)",
+        "三个并列形容词通常可删两个，或换成可测指标",
+        2,
+    ),
+    Rule(
+        "T1.9", "T1", "同义反复换词",
+        r"换言之|换句话说|也就是说[^。；]{0,6}(?:重复|同样)|即所谓的",
+        "同一概念全文用一个词，不要换着说",
+        1,
+    ),
+    Rule(
+        "T1.10", "T1", "填充套话",
+        r"值得(?:一提|注意)的是|众所周知|不言而喻|毋庸置疑",
+        "直接删；重要的话让句子本身显示出来",
+        3,
+    ),
+    Rule(
+        "T1.11", "T1", "长句堆砌",
+        r"(?:[^，,。；！？]{10,}[，,]){3,}",
+        "一句话一个意思：3 个以上长分句就拆句，删掉不承重的从句",
+        2,
+    ),
+    Rule(
+        "T1.12", "T1", "破折号",
+        r"——",
+        "学术正文不用破折号，改用逗号、冒号、括号或另起一句",
+        2,
+    ),
+]
+
+ACADEMIC_RULES: list[Rule] = [
+    Rule(
+        "T2.1", "T2", "过度断言动词",
+        r"证明|证实|确保了|保证了|完全(?:消除|解决|避免)|彻底(?:解决|改变)",
+        "实证工作只能说“显示/提供了证据”；动词强度不得超过证据",
+        4,
         needs_no_number=True,
     ),
     Rule(
-        "S2.3", "S", "假对比与假递进",
-        r"不是[^。；\n]{0,24}(?:而是|更是)|不仅[^。；\n]{0,24}更是"
-        r"|并非[^。；\n]{0,24}而是|与其说[^。；\n]{0,24}不如说",
-        "直接陈述肯定项；只有否定项在纠正读者的真实误解时才保留对比",
-        6,
-    ),
-    Rule(
-        "S2.4", "S", "段落末尾复述收尾",
-        r"这(?:就)?(?:说明|表明|意味着|正是)|由此可见|可见|这正是"
-        r"|(?:充分)?(?:彰显|体现)了",
-        "删掉复述；若有推论，写成带条件的新句子",
-        6,
-        paragraph_final=True,
-    ),
-    Rule(
-        "A2.5", "A", "起跑式铺垫与元话语",
-        r"本节(?:将|主要)|下面(?:我们)?(?:来)?(?:看|介绍|讨论|分析)"
-        r"|接下来(?:我们)?|众所周知|不难(?:发现|看出)"
-        r"|值得(?:注意|一提|强调)的是|需要注意的是|首先需要说明的是"
-        r"|随着[^。；\n]{0,16}(?:的)?(?:不断|快速|迅速|蓬勃)?(?:发展|进步|推进|普及)",
-        "删掉铺垫直接给内容；范围界定类句子保留",
+        "T2.2", "T2", "显著性炒作",
+        r"开辟了?(?:新的)?(?:道路|方向|范式)|为[^。；]{0,10}铺平了?道路|"
+        r"有望(?:彻底)?(?:改变|颠覆|革新)|填补了?(?:空白|空白点)|"
+        r"(?:显著|大幅|明显|极大)地?(?:提升|提高|改善|增强|降低|减少|缩短)",
+        "写清改进了哪个失效模式、提升了多少；补数字与检验",
         4,
+        needs_no_number=True,
     ),
     Rule(
-        "A2.6", "A", "连接词铺路（每段都用）",
-        r"^(?:因此|然而|此外|同时|首先|其次|再次|最后|另外|总之|综上|与此同时)[，,]",
-        "把关系写进句子（因果用动词与条件），保留真正需要的转折",
-        4,
+        "T2.3", "T2", "空泛强化词",
+        r"广泛的?(?:实验|测试|评估|数据)|全面的?(?:实验|评估|分析)|"
+        r"大量(?:的)?(?:实验|数据)|多种(?:数据|场景|方法)",
+        "举出具体数据集、样本量、场景数，而不是“广泛”“大量”",
+        3,
+        needs_no_number=True,
     ),
     Rule(
-        "B2.9", "B", "名词化与\"进行＋动词\"",
-        r"进行(?:了|着)?(?:[\u4e00-\u9fa5]{1,4})(?:分析|研究|测试|优化|处理|评估|讨论|验证|比较|测量|改进)"
-        r"|对[^。；\n]{0,12}的(?:优化|分析|实现|设计|改进|评估)",
-        "换成直接动词：\"测试了…\"而不是\"对…进行了测试\"",
-        2,
-    ),
-    Rule(
-        "B2.10", "B", "无主被动与\"被\"字堆叠",
-        r"被(?:认为|视为|广泛|普遍|发现|证明)|被[^。；\n]{0,8}(?:认为|视为)",
-        "施事已知就写出来；确属未知才用被动，并保留不确定性",
-        2,
-    ),
-    Rule(
-        "B2.11", "B", "四字排比与形容词堆叠",
-        rf"(?:[{CJK}]{{2,4}}、){{2,}}[{CJK}]{{2,4}}",
-        "换成可测的表述（时间、次数、阈值）",
-        2,
-    ),
-    Rule(
-        "S2.12", "S", "引用装饰与借权威",
-        r"专家(?:认为|指出|表示)|业内(?:普遍)?认为|大量(?:研究|实践)(?:表明|证明)"
-        r"|(?:研究|实践)表明(?!\s*\[)|有(?:研究|学者)(?:指出|认为)",
-        "点名、点条件、点结论（\"文献[5]在 20 个节点上测得…\"），否则删掉",
-        6,
-    ),
-    Rule(
-        "B2.13", "B", "装饰性标点与格式",
-        # 数值范围（60—90 s、图1—图3）里的连接号是规范用法，必须放过
-        rf"(?<!\d)[—–](?!\d)|[{CJK}][→←↑↓]|[\U0001F300-\U0001FAFF\u2705\u274C]|\*\*[^*\n]+\*\*",
-        "论文正文不用破折号堆叠、箭头装饰、emoji 与加粗强调",
+        "T2.4", "T2", "新颖性填充",
+        r"首次(?:提出|实现|研究)|据(?:我们|笔者)所知|据(?:我们|笔者)了解|"
+        r"填补了?(?:该|这一)?空白",
+        "改为“先前工作在 X 上未覆盖 Y”；新颖性靠对比，不靠宣言",
         3,
     ),
-    # —— 结构级规则：不参与逐句匹配，由 analyze() 在段落/全篇层面判定 ——
     Rule(
-        "A2.7", "A", "句长均匀",
-        "", "关键结论压成短句，限定条件并成长句；不要为了变化而硬拆硬合",
-        4, structural=True,
+        "T2.5", "T2", "模板化开头",
+        r"随着[^。；]{0,20}的(?:快速|迅速|不断)?(?:发展|进步|普及)[^。；]{0,20}[，,]|"
+        r"近年来[，,][^。；]{0,20}(?:受到|引起)[^。；]{0,10}(?:广泛)?关注",
+        "删掉铺垫，直接从具体问题或失效模式开头",
+        3,
     ),
     Rule(
-        "A3.1", "A", "段落首句复读标题",
-        "", "删掉复述标题的那句，直接给条件、定义或数据",
-        3, structural=True,
+        "T2.6", "T2", "连接词连用",
+        r"^(?:此外|同时|另外|而且|并且|然后|其次)[^。；]{0,10}[，,]",
+        "连续几句都用连接词开头会像清单；让逻辑自己承接",
+        2,
     ),
     Rule(
-        "A3.4", "A", "全文零数字",
-        "", "至少给一个具体数字、区间或条件（样本量、阈值、指标值）",
-        3, structural=True,
+        "T2.7", "T2", "贡献清单套话",
+        r"本文(?:的)?(?:主要)?贡献(?:如下|包括)[：:]?\s*(?:首先|第一|\(1\)|（1）)",
+        "每条贡献写成一个具体结果（指标+对比+条件），不要复述摘要",
+        3,
+    ),
+    Rule(
+        "T2.8", "T2", "文献堆砌",
+        r"许多(?:研究|方法|工作)(?:已经)?(?:提出|存在|表明)|大量文献",
+        "点出最近的一两篇并说明差异，而不是一串引用",
+        3,
+    ),
+    Rule(
+        "T2.9", "T2", "模糊限定",
+        r"(?:较为|一定程度上|某种程度上|相对来说|比较)(?:好|差|高|低|明显|稳定|准确)?",
+        "量化或删掉：给数值、区间与条件",
+        2,
+        needs_no_number=True,
+    ),
+    Rule(
+        "T2.10", "T2", "强调套话",
+        r"(?:值(?:得)?(?:特别)?(?:指出|注意)|应当(?:强调|指出)|尤其(?:值得)?注意)[的是]?[，,]?",
+        "删掉；若真重要，用数据和结论本身说明",
+        3,
+    ),
+    Rule(
+        "T2.11", "T2", "从句堆叠",
+        r"(?:[^。；！？]{20,})(?:，|,)?(?:其|该|这一)(?:[^。；！？]{10,})"
+        r"(?:，|,)(?:这|该)(?:[^。；！？]{10,})",
+        "拆句；一个句子只承担一个判断",
+        2,
     ),
 ]
+
+CLAIM_RULES: list[Rule] = [
+    Rule(
+        "C1", "C", "主张无证据指针",
+        r"(?:本文|该方法|本方法|该模型)[^。；！？]{0,30}"
+        r"(?:优于|高于|超过|领先|更好|更优|更准|更快)",
+        "实证主张要落到数字、图表或文献；补“[图3]”“[表2]”“[12]”，或降调",
+        4,
+        needs_no_number=True,
+    ),
+    Rule(
+        "C2", "C", "量级模糊",
+        r"(?:提升|提高|改善|降低|减少|缩短|增长)(?:了)?(?:不少|很多|许多|一些|一倍多)",
+        "给区间与统计口径，如“提升 3—6 个百分点（n=5，p<0.01）”",
+        3,
+    ),
+    Rule(
+        "C3", "C", "比较对象缺失",
+        r"优于(?:现有|已有|传统|主流)(?:方法|方案)",
+        "指明是哪一个基线、在哪一指标上、差多少",
+        3,
+    ),
+    Rule(
+        "C4", "C", "结论强于设计",
+        r"(?:可|能够)(?:广泛)?(?:应用|推广|适用)于[^。；！？]{0,12}(?:所有|各种|各类|任何)",
+        "把适用范围写成实测条件；“所有”类表述通常没有证据支撑",
+        3,
+    ),
+]
+
+ALL_RULES = TELL_RULES + ACADEMIC_RULES + CLAIM_RULES
+RULE_BY_ID = {r.id: r for r in ALL_RULES}
+
+# Layer 3 保留清单：证据型模糊限制属于正确写法，不报
+PRESERVE_HINTS = re.compile(
+    r"(?:提示|表明|说明|与[^。；]{0,6}一致|推测|假设|可能|似乎|有待)"
+    r"[^。；！？]{0,24}(?:\d|图|表|\[)")
+
+
+# ---------------------------------------------------------------- 文本处理
 
 CONNECTIVES = r"因此|然而|此外|同时|首先|其次|最后|综上|总之|另外|需要指出|由此可见"
 CITATION = re.compile(r"\[\s*\d+(?:\s*[-,，]\s*\d+)*\s*\]")
@@ -173,7 +266,7 @@ HEADING_STYLE = re.compile(r"^(?:Heading|标题)\s*\d", re.I)
 @dataclass
 class Hit:
     rule_id: str
-    level: str
+    layer: str
     title: str
     para_no: int
     excerpt: str
@@ -189,195 +282,94 @@ class Report:
     hits: list = field(default_factory=list)
     metrics: dict = field(default_factory=dict)
 
-    def _weighted(self, levels: set[str]) -> int:
+    def _score(self, layers: set[str]) -> int:
         if not self.chars:
             return 0
         weight = 0.0
         counted: dict[str, int] = {}
         for hit in self.hits:
-            if hit.level not in levels:
+            if hit.layer not in layers:
                 continue
             rule = RULE_BY_ID[hit.rule_id]
             n = counted.get(hit.rule_id, 0)
             counted[hit.rule_id] = n + 1
             # 同一规则第 3 次起降权，避免一个坏习惯把分数拉爆
             weight += rule.weight if n < 2 else rule.weight * 0.5
-        # 短文本不做无限放大：分母至少按 500 字计
         denominator = max(self.chars, 500) / 1000.0
         return int(min(100, round(weight / denominator * 4)))
 
     @property
+    def tells_score(self) -> int:
+        """AI 痕迹密度（Layer 1 + 2）。"""
+        return self._score({"T1", "T2"})
+
+    @property
+    def claims_score(self) -> int:
+        """主张强于证据的程度（Layer 4）。"""
+        return self._score({"C"})
+
+    @property
     def score(self) -> int:
-        """AI 味分（S/A/B 级规则）。"""
-        return self._weighted({"S", "A", "B"})
+        """总分，供 --max-score 使用。"""
+        return min(100, self.tells_score + self.claims_score)
 
-    @property
-    def register_score(self) -> int:
-        """语体分（R 级规则）：越高越大白话。"""
-        return self._weighted({"R"})
-
-    @property
-    def defensive_score(self) -> int:
-        """防御性分（D 级规则）：越高越像在为想象中的批评者写作。"""
-        return self._weighted({"D"})
-
-
-# ---------------------------------------------------------------- 语体（大白话）
-
-# 「去 AI 味」的反面不是「大白话」。论文要的是学术语体：客观、有依据、有限定。
-# 这组规则单独计分（level="R"），与 AI 味分数并列报告，两者都低才算合格。
-REGISTER_RULES: list[Rule] = [
-    Rule(
-        "R1", "R", "口语动词/程度词",
-        r"搞(?!活)|弄(?!虚)|整(?!理|体|合)|挺|超级|贼|巨(?!大|型)|不错|好用",
-        "换成书面语：搞→开展/实施；弄→处理/构造；挺/超级→较为/显著（有数据才用）",
-        3,
-    ),
-    Rule(
-        "R2", "R", "语气词与口语衔接",
-        r"(?:呢|吧|啊|嘛|啦|哈)(?=[，。；！？]|$)|然后呢|就是说|你看|你想想|说白了|反正",
-        "删掉语气词与口语衔接词；用“因此/据此/另一方面/相比之下”承接",
-        3,
-    ),
-    Rule(
-        "R3", "R", "主观随意的表述",
-        r"我觉得|我们觉得|我认为|我看|咱|咱们|笔者觉得|个人感觉",
-        "改为客观陈述：本文认为／结果表明／数据支持……；避免第一人称口语",
-        4,
-    ),
-    Rule(
-        "R4", "R", "模糊不严谨",
-        r"好像是|似乎吧|大概是|估计是|貌似|应该差不多|可能是吧|差不多是",
-        "改为可核查表述：估计值 ± 不确定度，或注明“在……假设下”",
-        3,
-    ),
-    Rule(
-        "R5", "R", "口语化顺承",
-        r"所以说|这不就|于是乎|接下来我们|下面我们就|我们可以看到",
-        "改为“因此/由此可见/下文依次分析”；避免把论文写成讲课口吻",
-        2,
-    ),
-    Rule(
-        "R6", "R", "情绪化与感叹",
-        r"太好了|太难了|棒极了|非常非常|极其极其|！{1,}",
-        "客观陈述即可；感叹号在学术正文中基本不用",
-        4,
-    ),
-]
-
-# ---------------------------------------------------------------- 防御性写作
-
-# 第三轴：为"想象中的批评者"写作。表现为免责声明、铺垫式让步、模糊限定叠加、
-# 预设质疑的"不是…而是…"、结尾强行平衡。
-# 与 AI 味（拔高/空转）方向相反但同源：都是"措辞强度 ≠ 证据强度"。
-DEFENSIVE_RULES: list[Rule] = [
-    Rule(
-        "D1", "D", "免责声明与自我辩护",
-        r"并非否认|并不是否认|无意贬低|无意否定|并非要否定|并不是要|不否认|"
-        r"这并不意味着|但这并不代表|事先声明|需要声明的是",
-        "删掉声明本身，直接写事实与结论；读者默认会善意理解",
-        4,
-    ),
-    Rule(
-        "D2", "D", "铺垫式让步",
-        r"诚然|固然|不可否认|毋庸置疑|话虽如此|虽然如此|当然，也|也有其道理",
-        "只在让步会实质改变结论或适用范围时保留，否则直接给判断",
-        3,
-    ),
-    Rule(
-        "D3", "D", "模糊限定叠加",
-        r"(?:可能|或许|一定程度上|某种意义上|某种程度上|在某种程度上)"
-        r"[^。；！？]{0,14}"
-        r"(?:可能|或许|一定程度上|某种意义上|某种程度上|在某种程度上)",
-        "叠加限定会稀释结论。确有不确定性时，明确指出不确定的是什么",
-        3,
-    ),
-    Rule(
-        "D4", "D", "预设质疑的“不是…而是…”",
-        r"不是[^。；！？]{0,20}而是",
-        "若文中没有人质疑过这一点，直接说它是什么、怎么运作、为何成立",
-        2,
-    ),
-    Rule(
-        "D5", "D", "结尾强行平衡",
-        r"不能一概而论|仍需理性看待|应辩证|有待商榷|仁者见仁|见仁见智|"
-        r"不能简单地说",
-        "删掉收尾平衡句；让读者自己判断，或把边界条件写进方法与讨论",
-        3,
-    ),
-    Rule(
-        "D6", "D", "弱化到看不出结论",
-        r"(?:似乎|或许|大致上|基本上)(?:可以)?(?:认为|说明|表明|证明了)",
-        "把能确定的写成确定；不能确定的写成“在……条件下观察到”",
-        2,
-    ),
-]
-
-ALL_RULES = RULES + REGISTER_RULES + DEFENSIVE_RULES
-
-RULE_BY_ID = {r.id: r for r in ALL_RULES}
-
-
-# ---------------------------------------------------------------- 文本处理
 
 def strip_noise(text: str) -> str:
     """剥离引用编号、引语、行内代码，避免误报。"""
     text = CITATION.sub("", text)
     text = QUOTED.sub("", text)
-    return text
+    return text.replace("`", "")
 
 
 def split_sentences(text: str) -> list[str]:
-    parts = [p.strip() for p in SENT_SPLIT.split(text)]
-    return [p for p in parts if len(p) >= 4]
+    return [s.strip() for s in SENT_SPLIT.split(text) if s.strip()]
 
+
+# ---------------------------------------------------------------- 采集
 
 def collect_paragraphs_docx(path: str) -> tuple[list[tuple[str, bool]], str]:
-    """返回 [(段落文本, 是否标题)]，跳过题注、表注与参考文献之后的内容。"""
     from docx import Document
 
     doc = Document(path)
     out: list[tuple[str, bool]] = []
     in_refs = False
-    for p in doc.paragraphs:
-        text = p.text.strip()
+    for para in doc.paragraphs:
+        text = (para.text or "").strip()
         if not text:
             continue
-        style = (p.style.name if p.style is not None else "") or ""
-        is_heading = bool(HEADING_STYLE.match(style))
-        if is_heading and REF_HEADING.match(text):
+        style = (para.style.name or "") if para.style is not None else ""
+        if REF_HEADING.match(text):
             in_refs = True
             continue
-        if in_refs:
+        if in_refs or CAPTION.match(text):
             continue
-        if CAPTION.match(text) or text.startswith("关键词") or text.startswith("Keywords"):
-            continue
-        out.append((text, is_heading))
+        out.append((text, bool(HEADING_STYLE.match(style))))
     return out, os.path.basename(path)
 
 
 def collect_paragraphs_model(path: str) -> tuple[list[tuple[str, bool]], str]:
-    with open(path, encoding="utf-8") as fh:
+    with open(os.path.abspath(path), encoding="utf-8-sig") as fh:
         model = json.load(fh)
-
     out: list[tuple[str, bool]] = []
+    for item in model.get("sections", []):
+        if not isinstance(item, dict):
+            out.append((str(item), False))
+            continue
+        if item.get("level") in (1, 2, 3) or item.get("type") in ("h1", "h2", "h3"):
+            out.append((str(item.get("text", "")), True))
+        elif item.get("type") in ("p", "paragraph"):
+            texts = item.get("text", "")
+            if isinstance(texts, str):
+                texts = [texts]
+            for t in texts:
+                out.append((str(t), False))
+        elif item.get("type") == "callout":
+            out.append((str(item.get("text", "")), False))
     for key in ("abstract", "abstract_en"):
         block = model.get(key) or {}
-        for text in block.get("paragraphs", []) or []:
-            out.append((str(text).strip(), False))
-    for item in model.get("sections", []) or []:
-        if not isinstance(item, dict):
-            continue
-        if item.get("level") in (1, 2) or item.get("type") in ("h1", "h2"):
-            out.append((str(item.get("text", "")).strip(), True))
-        elif item.get("type") in (None, "p", "paragraph"):
-            text = item.get("text", "")
-            for chunk in (text if isinstance(text, list) else [text]):
-                out.append((str(chunk).strip(), False))
-        elif item.get("type") == "list":
-            for chunk in item.get("items", []) or []:
-                out.append((str(chunk).strip(), False))
-    return [(t, h) for t, h in out if t], os.path.basename(path)
+        for t in block.get("paragraphs", []) or []:
+            out.append((str(t), False))
+    return out, os.path.basename(path)
 
 
 def collect_paragraphs_text(path: str) -> tuple[list[tuple[str, bool]], str]:
@@ -399,18 +391,15 @@ def collect_paragraphs_text(path: str) -> tuple[list[tuple[str, bool]], str]:
 
 def analyze(paragraphs: list[tuple[str, bool]], source: str) -> Report:
     report = Report(source=source)
-    body = [(t, h) for t, h in paragraphs]
-    report.paragraphs = len(body)
+    report.paragraphs = len(paragraphs)
 
     all_chars = 0
     all_sentences: list[int] = []
     connective_count = 0
     number_count = 0
-    heading_buffer: str | None = None
 
-    for idx, (raw, is_heading) in enumerate(body, start=1):
+    for idx, (raw, is_heading) in enumerate(paragraphs, start=1):
         if is_heading:
-            heading_buffer = raw
             continue
         text = strip_noise(raw)
         all_chars += len(text)
@@ -419,33 +408,19 @@ def analyze(paragraphs: list[tuple[str, bool]], source: str) -> Report:
         connective_count += len(re.findall(CONNECTIVES, text))
         number_count += len(re.findall(_NUM, text))
 
-        # A3.1 段落首句复读标题
-        if heading_buffer and sentences:
-            first = sentences[0]
-            overlap = _overlap(heading_buffer, first)
-            if overlap >= 0.6 and len(first) <= 40:
-                report.hits.append(Hit(
-                    "A3.1", "A", "段首复读标题", idx,
-                    _excerpt(first),
-                    "删掉复述标题的那句，直接给条件、定义或数据"))
-        heading_buffer = None
-
         for rule in ALL_RULES:
-            if rule.structural:
-                continue      # 结构级规则由段落/全篇逻辑判定，不做逐句匹配
             for s_idx, sentence in enumerate(sentences):
                 if rule.needs_no_number and re.search(_NUM, sentence):
-                    continue
+                    continue          # 有数字=有证据（Layer 3 保留）
+                if rule.layer == "C" and PRESERVE_HINTS.search(sentence):
+                    continue          # 证据型模糊限制不报
                 if rule.paragraph_final and s_idx != len(sentences) - 1:
                     continue
-                m = re.search(rule.pattern, sentence)
-                if not m:
+                if not re.search(rule.pattern, sentence):
                     continue
-                if rule.id == "A2.6" and not _dense_connectives(sentences):
-                    continue      # 只有"每段都用"才报
-                report.hits.append(Hit(rule.id, rule.level, rule.title, idx,
+                report.hits.append(Hit(rule.id, rule.layer, rule.title, idx,
                                        _excerpt(sentence), rule.advice))
-                break             # 同一段同一规则只报一次
+                break                 # 同一段同一规则只报一次
 
     report.chars = all_chars
     report.sentences = len(all_sentences)
@@ -455,44 +430,14 @@ def analyze(paragraphs: list[tuple[str, bool]], source: str) -> Report:
         "连接词/千字": round(connective_count / all_chars * 1000, 1) if all_chars else 0,
         "数字/千字": round(number_count / all_chars * 1000, 1) if all_chars else 0,
     }
-
-    # A3.4 全文零数字
-    if all_chars >= 400 and report.metrics["数字/千字"] < 1.0:
-        report.hits.append(Hit("A3.4", "A", "全文零数字", 0, "(全篇)",
-                               "至少给一个具体数字、区间或条件"))
-    # A2.7 句长均匀（结构级）
-    if len(all_sentences) >= 8 and report.metrics["句长变异"] < 0.35:
-        report.hits.append(Hit("A2.7", "A", "句长均匀", 0,
-                               "句长变异 %.2f（< 0.35）" % report.metrics["句长变异"],
-                               "关键结论压成短句，限定条件并成长句；不要硬拆硬合"))
     return report
 
 
 def _cv(values: list[int]) -> float:
     if len(values) < 2:
-        return 1.0
-    mean = statistics.mean(values)
-    return statistics.pstdev(values) / mean if mean else 1.0
-
-
-def _overlap(heading: str, sentence: str) -> float:
-    """标题与句子的二元组重合率；以两者中较短的长度归一，避免长句被稀释。"""
-    h = re.sub(rf"[^\w{CJK}]", "", heading)
-    s = re.sub(rf"[^\w{CJK}]", "", sentence)
-    if not h or not s:
         return 0.0
-    h_len = max(len(h) - 1, 1)
-    s_len = max(len(s) - 1, 1)
-    grams = {h[i:i + 2] for i in range(h_len)}
-    hits = sum(1 for i in range(s_len) if s[i:i + 2] in grams)
-    return hits / min(h_len, s_len)
-
-
-def _dense_connectives(sentences: list[str]) -> bool:
-    if len(sentences) < 2:
-        return False
-    started = sum(1 for s in sentences if re.match(CONNECTIVES, s.strip()))
-    return started >= max(2, len(sentences) // 2)
+    mean = statistics.mean(values)
+    return statistics.pstdev(values) / mean if mean else 0.0
 
 
 def _excerpt(text: str, limit: int = 46) -> str:
@@ -502,48 +447,25 @@ def _excerpt(text: str, limit: int = 46) -> str:
 
 # ---------------------------------------------------------------- 输出
 
-LEVEL_LABEL = [(60, "重"), (40, "明显"), (20, "轻微"), (0, "清爽")]
-
-
-REGISTER_LABEL = [(60, "大白话"), (40, "偏口语"), (20, "略松"), (0, "学术语体")]
-DEFENSIVE_LABEL = [(60, "通篇防御"), (40, "明显防御"), (20, "略防御"), (0, "克制")]
-
-
-def grade_defensive(score: int) -> str:
-    for threshold, label in DEFENSIVE_LABEL:
-        if score >= threshold:
-            return label
-    return "克制"
-
-
-def grade_register(score: int) -> str:
-    for threshold, label in REGISTER_LABEL:
-        if score >= threshold:
-            return label
-    return "学术语体"
+LABELS = [(60, "重"), (40, "明显"), (20, "轻微"), (0, "干净")]
 
 
 def grade(score: int) -> str:
-    for threshold, label in LEVEL_LABEL:
+    for threshold, label in LABELS:
         if score >= threshold:
             return label
-    return "清爽"
+    return "干净"
 
 
 def render(report: Report) -> str:
-    lines = []
-    lines.append("AI 味检测：%s" % report.source)
-    lines.append("分析 %d 字 / %d 段 / %d 句" % (report.chars, report.paragraphs, report.sentences))
-    lines.append("-" * 72)
-    score = report.score
-    reg = report.register_score
-    dfe = report.defensive_score
-    lines.append("AI 味 %d/100（%s）｜语体 %d/100（%s）｜防御性 %d/100（%s）"
-                 % (score, grade(score), reg, grade_register(reg),
-                    dfe, grade_defensive(dfe)))
-    lines.append("三轴都要低（各 ≤20）：AI 味=空转拔高；语体=大白话；"
-                 "防御性=为想象中的批评者写作。")
-    lines.append("共同目标只有一个：措辞强度 = 证据强度。")
+    lines = ["学术文风审计：%s" % report.source,
+             "分析 %d 字 / %d 段 / %d 句" % (report.chars, report.paragraphs,
+                                             report.sentences),
+             "-" * 72]
+    tells, claims = report.tells_score, report.claims_score
+    lines.append("AI 痕迹 %d / 100（%s）｜主张-证据 %d / 100（%s）"
+                 % (tells, grade(tells), claims, grade(claims)))
+    lines.append("两者都低才算合格。分数只用于定位，不判断作者身份。")
     m = report.metrics
     lines.append("句长均值 %s ｜ 句长变异 %s ｜ 连接词 %s/千字 ｜ 数字 %s/千字"
                  % (m.get("句长均值"), m.get("句长变异"),
@@ -551,7 +473,7 @@ def render(report: Report) -> str:
     lines.append("-" * 72)
 
     if not report.hits:
-        lines.append("没有命中可枚举的规则。仍建议按 §5 协议通读一遍：")
+        lines.append("没有命中可枚举的规则。仍建议按 Layer 4 逐条核对主张与证据：")
         lines.append("  references/anti-ai-academic-zh.md")
         return "\n".join(lines)
 
@@ -559,45 +481,54 @@ def render(report: Report) -> str:
     for hit in report.hits:
         grouped.setdefault(hit.rule_id, []).append(hit)
 
-    for rule in ALL_RULES:
-        hits = grouped.get(rule.id)
-        if not hits:
+    for layer, label in (("T1", "Layer 1 通用 AI 痕迹"),
+                         ("T2", "Layer 2 学术 AI 痕迹"),
+                         ("C", "Layer 4 主张-证据")):
+        rules = [r for r in ALL_RULES if r.layer == layer and r.id in grouped]
+        if not rules:
             continue
-        lines.append("[%s] %s（%s 级）×%d" % (rule.id, rule.title, rule.level, len(hits)))
-        for hit in hits[:6]:
-            where = "全篇" if hit.para_no == 0 else "¶%d" % hit.para_no
-            lines.append("   %-6s %s" % (where, hit.excerpt))
-        if len(hits) > 6:
-            lines.append("   … 另有 %d 处" % (len(hits) - 6))
-        if rule.advice:
-            lines.append("   建议：%s" % rule.advice)
+        lines.append("【%s】" % label)
+        for rule in rules:
+            hits = grouped[rule.id]
+            lines.append("  [%s] %s ×%d" % (rule.id, rule.title, len(hits)))
+            for hit in hits[:6]:
+                where = "全篇" if hit.para_no == 0 else "¶%d" % hit.para_no
+                lines.append("     %-6s %s" % (where, hit.excerpt))
+            if len(hits) > 6:
+                lines.append("     … 另有 %d 处" % (len(hits) - 6))
+            if rule.advice:
+                lines.append("     改法：%s" % rule.advice)
         lines.append("")
 
-    by_level: dict[str, int] = {}
-    for hit in report.hits:
-        by_level[hit.level] = by_level.get(hit.level, 0) + 1
-    lines.append("S 级 %d / A 级 %d / B 级 %d / R 级（大白话）%d / D 级（防御性）%d；"
-                 "规则说明见 references/anti-ai-academic-zh.md"
-                 % (by_level.get("S", 0), by_level.get("A", 0), by_level.get("B", 0),
-                    by_level.get("R", 0), by_level.get("D", 0)))
+    lines.append("下一步：按 Layer 3 逐句核对——有证据的限制、被动语态、“我们”、"
+                 "术语与公式不动；数字、公式、引用一个都不许改。")
     return "\n".join(lines)
+
+
+def render_audit(report: Report) -> str:
+    """Audit 模式：一行一条，便于逐条处理。"""
+    if not report.hits:
+        return "无命中。"
+    rows = ["层\t编号\t类型\t位置\t改法"]
+    for hit in report.hits:
+        rows.append("%s\t%s\t%s\t¶%d\t%s" % (hit.layer, hit.rule_id, hit.title,
+                                            hit.para_no, hit.advice))
+    return "\n".join(rows)
 
 
 def main(argv=None):
     _console.setup()
     ap = argparse.ArgumentParser(
-        description="启发式检测学术中文的「AI 味」（只报警，不改稿）")
+        description="按 academic-humanizer 的逻辑审计学术文风（只报警，不改稿）")
     src = ap.add_mutually_exclusive_group(required=True)
-    src.add_argument("--docx", help="已生成的 .docx")
-    src.add_argument("--json", help="内容模型 content.json")
-    src.add_argument("--text", help="纯文本/Markdown（空行分段，# 开头视为标题）")
-    ap.add_argument("--max-defensive", type=int, default=None,
-                    help="防御性分阈值（越高越防御）；超阈值退出码 1")
-    ap.add_argument("--max-register", type=int, default=None,
-                    help="语体分阈值（越大白越大）；超阈值退出码 1")
+    src.add_argument("--docx", help="待检测的 docx")
+    src.add_argument("--json", help="内容模型 JSON")
+    src.add_argument("--text", help="纯文本 / Markdown")
     ap.add_argument("--max-score", type=int, default=None,
-                    help="分数超过该值时退出码为 1（用于 CI/交付门禁）")
-    ap.add_argument("--json-out", action="store_true", help="输出 JSON 而不是报告文本")
+                    help="总分阈值（超出退出码 1）")
+    ap.add_argument("--json-out", action="store_true", help="以 JSON 输出")
+    ap.add_argument("--audit", action="store_true",
+                    help="只输出审计清单（层/编号/类型/位置/改法）")
     args = ap.parse_args(argv)
 
     if args.docx:
@@ -607,28 +538,31 @@ def main(argv=None):
     else:
         paragraphs, name = collect_paragraphs_text(args.text)
 
-    if not paragraphs:
+    report = analyze(paragraphs, name)
+    if not report.chars:
         print("没有可分析的正文段落（检查输入文件）", file=sys.stderr)
         return 2
 
-    report = analyze(paragraphs, name)
     if args.json_out:
         print(json.dumps({
             "source": report.source,
+            "tells_score": report.tells_score,
+            "claims_score": report.claims_score,
             "score": report.score,
             "grade": grade(report.score),
-            "register_score": report.register_score,
-            "defensive_score": report.defensive_score,
             "chars": report.chars,
             "sentences": report.sentences,
             "metrics": report.metrics,
             "hits": [h.__dict__ for h in report.hits],
         }, ensure_ascii=False, indent=2))
+    elif args.audit:
+        print(render_audit(report))
     else:
         print(render(report))
 
     if args.max_score is not None and report.score > args.max_score:
-        print("\n超过阈值 %d（实际 %d）。" % (args.max_score, report.score), file=sys.stderr)
+        print("\n超过阈值 %d（实际 %d）。" % (args.max_score, report.score),
+              file=sys.stderr)
         return 1
     return 0
 

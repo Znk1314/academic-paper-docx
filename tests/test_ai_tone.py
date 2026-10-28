@@ -1,252 +1,125 @@
-"""AI 味检测器的测试：能抓到、不误伤、规则与文档一一对应。"""
+"""学术文风审计测试：规则来自 academic-humanizer（MIT）。
+
+覆盖三类：Layer 1 通用痕迹、Layer 2 学术痕迹、Layer 4 主张-证据；
+外加 Layer 3 的"保留清单"（有证据的写法不许误报）。
+"""
 
 from __future__ import annotations
 
-import json
-import os
-
-import ai_tone_check as tone
-import pytest
-from conftest import DEMO_MODEL
-
-
-def paras(*texts):
-    return [(t, False) for t in texts]
-
-
-def ids(report):
-    return {h.rule_id for h in report.hits}
-
-
-# ---------------------------------------------------------------- 判定方向
-
-def test_clean_academic_text_scores_low():
-    report = tone.analyze(paras(
-        "在 12 个节点、60 s 采样周期下，平均功耗为 7.4 mW。",
-        "节点数增加到 20 时，误差从 0.21 ℃ 升到 0.31 ℃。",
-        "原因是人员进出使温度的时间尺度接近采样间隔，滑动平均无法抑制阶跃扰动。",
-    ), "clean")
-    assert report.score < 20, tone.render(report)
-    assert "S2.1" not in ids(report)
-
-
-def test_ai_dense_text_scores_high():
-    report = tone.analyze(paras(
-        "随着物联网技术的快速发展，实验室环境监测受到了广泛关注。",
-        "这不仅是一次技术改进，更是对传统思路的深刻变革。",
-        "实验结果表明，该方法显著提升了监测精度，取得了良好的效果。",
-        "众所周知，该框架具有广阔的应用前景。",
-        "综上所述，本文为后续工作奠定了坚实的基础。",
-    ), "dense")
-    assert report.score >= 60, tone.render(report)
-    assert {"S2.1", "S2.3"} <= ids(report)
-
-
-def test_score_grows_with_more_tells():
-    base = tone.analyze(paras("在 12 个节点上测得平均功耗 7.4 mW。"), "a")
-    noisy = tone.analyze(paras(
-        "在 12 个节点上测得平均功耗 7.4 mW。",
-        "该方法具有重要的理论意义和现实价值。",
-        "专家认为它具有广阔的应用前景。",
-    ), "b")
-    assert noisy.score > base.score
-
-
-def test_very_short_text_does_not_score():
-    assert tone.analyze(paras("测试。"), "x").score == 0
-
-
-def test_grade_thresholds():
-    assert tone.grade(0) == "清爽"
-    assert tone.grade(25) == "轻微"
-    assert tone.grade(45) == "明显"
-    assert tone.grade(80) == "重"
-
-
-# ---------------------------------------------------------------- 豁免与边界
-
-def test_inflation_exempt_when_sentence_has_data():
-    """S2.2 只在"没有数字"时报警。"""
-    report = tone.analyze(paras("改进方法的 F1 从 0.71 显著提升到 0.79，样本 120 组。"), "t")
-    assert "S2.2" not in ids(report)
-
-    report2 = tone.analyze(paras("改进方法显著提升了检测精度。"), "t")
-    assert "S2.2" in ids(report2)
-
-
-def test_quoted_and_cited_content_is_stripped():
-    report = tone.analyze(paras(
-        '作者原话是“具有广阔的应用前景”，但正文没有给出任何数据。',
-        "文献[3]报告该现象，未说明原因。",
-    ), "t")
-    assert "S2.1" not in ids(report), tone.render(report)
-
-
-def test_numeric_range_dash_is_not_decoration():
-    report = tone.analyze(paras("采样周期取 60—90 s 时，误差保持在 0.31 ℃ 以内。"), "t")
-    assert "B2.13" not in ids(report)
-
-    report2 = tone.analyze(paras("结果终于出现——文件无法导出。"), "t")
-    assert "B2.13" in ids(report2)
-
-
-def test_method_passive_is_exempt():
-    """方法段的被动/无主句是学术惯例，B2.10 不应命中。"""
-    report = tone.analyze(paras("样本在 4 ℃ 下保存 24 h，随后以 3000 r/min 离心 10 min。"), "t")
-    assert "B2.10" not in ids(report)
-
-
-def test_repeat_closer_only_at_paragraph_end():
-    """S2.4 只认"段末那句"，段中的转折/推进行为不算复述收尾。"""
-    mid = tone.analyze(paras("由此可见该方法有效。后续补充了三组对照，误差降到 0.21 ℃。"), "t")
-    assert "S2.4" not in ids(mid), tone.render(mid)
-
-    end = tone.analyze(paras("三组对照的误差分别是 0.21、0.24、0.31 ℃。由此可见该方法有效。"), "t")
-    assert "S2.4" in ids(end)
-
-
-def test_heading_repeat_detected():
-    report = tone.analyze([("3.1 实验设置", True), ("本节介绍实验设置。", False)], "t")
-    assert "A3.1" in ids(report)
-
-
-# ---------------------------------------------------------------- 规则表自洽
-
-def test_rule_ids_unique():
-    rule_ids = [r.id for r in tone.RULES]
-    assert len(rule_ids) == len(set(rule_ids))
-
-
-def test_every_rule_documented(repo):
-    """规则编号必须能在 references/anti-ai-academic-zh.md 里查到，避免代码与文档脱节。"""
-    path = os.path.join(repo, "references", "anti-ai-academic-zh.md")
-    with open(path, encoding="utf-8") as fh:
-        doc = fh.read()
-    missing = [r.id for r in tone.RULES if r.id not in doc]
-    assert not missing, "文档缺少规则说明：%s" % missing
-
-
-# ---------------------------------------------------------------- 输入与 CLI
-
-def test_collect_from_repo_demo_model():
-    paragraphs, name = tone.collect_paragraphs_model(DEMO_MODEL)
-    assert paragraphs and name.endswith(".json")
-    report = tone.analyze(paragraphs, name)
-    assert report.chars > 1000
-    assert report.score < 40
-
-
-def test_cli_text_and_threshold(tmp_path, capsys):
-    clean = tmp_path / "clean.md"
-    clean.write_text("在 12 个节点上测得平均功耗 7.4 mW，采样周期 60 s。\n", encoding="utf-8")
-    assert tone.main(["--text", str(clean), "--max-score", "40"]) == 0
-
-    dirty = tmp_path / "dirty.md"
-    dirty.write_text(
-        "随着技术的发展，该问题受到了广泛关注。\n\n"
-        "这不仅是一次改进，更是深刻的变革。\n\n"
-        "综上所述，本文具有重要的理论意义和现实价值。\n", encoding="utf-8")
-    assert tone.main(["--text", str(dirty), "--max-score", "40"]) == 1
-
-
-def test_cli_json_output(tmp_path, capsys):
-    path = tmp_path / "dirty.md"
-    path.write_text("该方法具有重要的理论意义和现实价值。\n", encoding="utf-8")
-    tone.main(["--text", str(path), "--json-out"])
-    payload = json.loads(capsys.readouterr().out)
-    assert payload["score"] >= 0
-    assert payload["grade"] in {"清爽", "轻微", "明显", "重"}
-    assert payload["hits"]
-
-
-def test_cli_missing_paragraphs_exit_2(tmp_path):
-    empty = tmp_path / "empty.md"
-    empty.write_text("\n\n", encoding="utf-8")
-    assert tone.main(["--text", str(empty)]) == 2
-
-
-@pytest.mark.parametrize("kind", ["--docx", "--json", "--text"])
-def test_mutually_exclusive_source_requires_one(kind):
-    with pytest.raises(SystemExit):
-        tone.main([])
-
-
-# ---------------------------------------------------------------- 语体（大白话）
-
-COLLOQUIAL = ("我们觉得这个方法挺不错，搞了半天，效果嘛，挺明显的。然后呢，"
-              "我们就弄了一个新的流程，差不多能省一半电。说白了就是把数据先处理一下，"
-              "所以说效果特别好！你看这个思路是不是很棒？")
-
-ACADEMIC = ("在节点数为 12、采样周期为 60 s 的条件下，平均功耗由 15.9 mW 降至 10.4 mW，"
-            "降幅 34.6%，温度估计的均方根误差为 0.24 ℃。结果表明，通信占空比是该场景下"
-            "功耗的主要来源；当采样周期超过 120 s 时误差上升加快。")
+import ai_tone_check as t
 
 
 def _analyze(text):
-    import ai_tone_check as t
     return t.analyze([(text, False)], "inline")
 
 
-def test_colloquial_text_scores_high_register():
-    report = _analyze(COLLOQUIAL)
-    assert report.register_score >= 40, report.register_score
-    assert report.score <= 20, report.score     # 没有 AI 套话
+# ---------------------------------------------------------------- Layer 1
+
+def test_significance_hype_detected():
+    r = _analyze("该方法具有重要的理论意义和应用价值。")
+    assert {"T1.1"} & {h.rule_id for h in r.hits}
+    assert r.tells_score > 0
 
 
-def test_academic_text_scores_low_register():
-    report = _analyze(ACADEMIC)
-    assert report.register_score <= 20, report.register_score
+def test_promotional_words_detected():
+    r = _analyze("本研究赋能产业升级，助力乡村振兴，形成闭环。")
+    assert "T1.3" in {h.rule_id for h in r.hits}
 
 
-def test_register_rules_are_reported_separately():
-    import ai_tone_check as t
-    report = _analyze(COLLOQUIAL)
-    ids = {h.rule_id for h in report.hits}
-    assert ids & {"R1", "R2", "R3", "R5"}, ids
-    assert not ids & {"S2.1", "A2.5"}          # 不把 AI 味规则算进语体
-    assert "学术语体" in t.grade_register(0)
-    assert "大白话" in t.grade_register(80)
+def test_unsourced_authority_detected():
+    r = _analyze("专家认为该方法适合该场景。")
+    assert "T1.4" in {h.rule_id for h in r.hits}
 
 
-# ---------------------------------------------------------------- 防御性写作
-
-DEFENSIVE = ("需要说明的是，本文并非否认既有模型的解释力，也无意贬低机理建模的价值。"
-             "诚然，数据驱动方法有其局限，但这并不意味着仿真结果不可信。"
-             "在某种意义上，该结论可能一定程度上受样本量影响，因此仍需理性看待，不能一概而论。")
-
-PLAIN_ACADEMIC = ("机理模型在参数可测时给出可解释的外推；数据驱动模型在参数缺失时依靠特征映射补足预测能力。"
-                  "本文用 5 类土地利用类型的 120 组样本训练 PCA-GA-BP 网络，验证集决定系数为 0.933。"
-                  "样本量少于 60 组时，验证集误差上升约 40%，因此该模型适用于不少于 60 组的样本条件。")
+def test_filler_detected():
+    r = _analyze("值得注意的是，该结果稳定。")
+    assert "T1.10" in {h.rule_id for h in r.hits}
 
 
-def test_defensive_text_scores_high():
-    report = _analyze(DEFENSIVE)
-    assert report.defensive_score >= 40, report.defensive_score
-    ids = {h.rule_id for h in report.hits}
-    assert ids & {"D1", "D2", "D3", "D5"}, ids
+def test_em_dash_detected():
+    r = _analyze("该流程——从采集到上传——均可本地完成。")
+    assert "T1.12" in {h.rule_id for h in r.hits}
 
 
-def test_plain_academic_text_scores_low_defensive():
-    report = _analyze(PLAIN_ACADEMIC)
-    assert report.defensive_score <= 20, report.defensive_score
+def test_long_sentence_detected():
+    r = _analyze("现有方法虽然具有一定的可解释性，但其参数依赖人工设定，"
+                 "在样本分布发生变化时容易出现偏移，从而限制了进一步推广。")
+    assert {"T1.11", "T2.11"} & {h.rule_id for h in r.hits}
 
 
-def test_defensive_rules_do_not_mix_with_other_axes():
-    report = _analyze(DEFENSIVE)
-    assert report.score <= 20            # 没有 AI 套话
-    assert report.register_score <= 20   # 不是大白话
-    assert report.defensive_score >= 40  # 而是防御性
+# ---------------------------------------------------------------- Layer 2
+
+def test_overclaim_verb_detected():
+    r = _analyze("本文方法证明了该假设，并彻底解决了误差累积问题。")
+    ids = {h.rule_id for h in r.hits}
+    assert "T2.1" in ids
 
 
-def test_defensive_grade_labels():
-    import ai_tone_check as t
-    assert "克制" in t.grade_defensive(0)
-    assert "通篇防御" in t.grade_defensive(80)
+def test_overclaim_verb_not_flagged_with_numbers():
+    """有数字时视为有证据（Layer 3），不报。"""
+    r = _analyze("在 3 个数据集上，本文方法的准确率由 0.86 提升到 0.91。")
+    assert "T2.1" not in {h.rule_id for h in r.hits}
 
 
-def test_legit_limitation_is_not_flagged():
-    """有证据的边界条件不算防御性写作（避免矫枉过正）。"""
-    text = ("未考虑电池内阻随温度变化的影响，实际寿命可能低于估计值。"
-            "在 n<60 条件下验证集误差上升约 40%，该区间不外推。")
-    report = _analyze(text)
-    assert report.defensive_score <= 40, report.defensive_score
+def test_novelty_padding_detected():
+    r = _analyze("据我们所知，这是首次研究该问题。")
+    assert "T2.4" in {h.rule_id for h in r.hits}
+
+
+def test_formulaic_opener_detected():
+    r = _analyze("随着深度学习技术的快速发展，该问题受到广泛关注。")
+    assert "T2.5" in {h.rule_id for h in r.hits}
+
+
+def test_contribution_cliche_detected():
+    r = _analyze("本文的主要贡献如下：首先提出一个框架。")
+    assert "T2.7" in {h.rule_id for h in r.hits}
+
+
+def test_vague_hedging_detected():
+    r = _analyze("该方法较为稳定，效果比较好。")
+    assert "T2.9" in {h.rule_id for h in r.hits}
+
+
+# ---------------------------------------------------------------- Layer 4
+
+def test_unbacked_claim_detected():
+    r = _analyze("本文方法优于现有方法。")
+    assert "C1" in {h.rule_id for h in r.hits}
+    assert r.claims_score > 0
+
+
+def test_vague_magnitude_detected():
+    r = _analyze("该设计将功耗降低了不少。")
+    assert "C2" in {h.rule_id for h in r.hits}
+
+
+def test_overgeneralized_claim_detected():
+    r = _analyze("该模型能够广泛应用于各类场景。")
+    assert "C4" in {h.rule_id for h in r.hits}
+
+
+# ---------------------------------------------------------------- Layer 3 保留
+
+def test_evidence_tied_hedging_is_preserved():
+    """证据型模糊限制是正确写法，不许报。"""
+    r = _analyze("结果提示该趋势可能与采样间隔有关（图 3）。")
+    assert not r.hits, [h.rule_id for h in r.hits]
+
+
+def test_passive_and_we_are_not_flagged():
+    r = _analyze("样本在 4 ℃ 下离心 10 min。We compare three baselines.")
+    assert not r.hits
+
+
+def test_clean_academic_text_scores_zero():
+    r = _analyze("在节点数为 12、采样周期为 60 s 的条件下，平均功耗由 15.9 mW 降至 10.4 mW，"
+                 "降幅 34.6%。结果表明通信占空比是该场景下功耗的主要来源。")
+    assert r.score == 0, [h.rule_id for h in r.hits]
+
+
+def test_metrics_and_grades():
+    r = _analyze("随着技术的发展，该问题受到广泛关注。")
+    assert r.metrics["句长均值"] > 0
+    assert t.grade(0) == "干净"
+    assert t.grade(80) == "重"

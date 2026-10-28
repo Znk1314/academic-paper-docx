@@ -5,6 +5,19 @@
 
 ## [Unreleased]
 
+### Changed
+
+- **文风检测改为完整采用 [academic-humanizer](https://github.com/AIScientists-Dev/academic-humanizer)
+  （MIT）的逻辑**，删除本仓自研的一切去 AI 味规则：
+  - 移除：S/A/B「AI 味」12 类规则、R「语体」6 条、D「防御性写作」6 条、三轴框架
+  - 移除：`--max-register` / `--max-defensive` 参数与 `register_score` / `defensive_score`
+  - 新增：Layer 1 通用痕迹（T1.1–T1.12）、Layer 2 学术痕迹（T2.1–T2.11）、
+    Layer 4 主张-证据（C1–C4），以及 Layer 3 保留清单的代码化豁免
+    （句中带数字则不报；证据型模糊限制不报）
+  - 新增：`--audit` 输出审计清单（层/编号/类型/位置/改法），对齐上游 Read→Audit→Rewrite→Report
+  - 文档：`references/anti-ai-academic-zh.md` 整篇重写为六层中文适配 + 许可与来源声明；
+    SKILL.md §12 与 §0.0、README「文风」节同步；测试全部按新规则重写（19 条）
+
 ### Added
 
 - **文风第三条轴：防御性写作（D 级规则）**——「别为想象中的批评者写作」

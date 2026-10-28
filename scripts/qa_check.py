@@ -1087,22 +1087,23 @@ def check_ai_tone(path):
         warn_if("文风", "AI 味检测跳过", True, str(exc))
         return
 
-    score = report.score
     top = []
     for hit in report.hits:
         if hit.rule_id not in top:
             top.append(hit.rule_id)
         if len(top) >= 3:
             break
-    reg = report.register_score
-    dfe = report.defensive_score
-    detail = ("AI 味 %d/100（%s）｜ 语体 %d/100（%s）｜ 防御性 %d/100（%s）%s；"
-              "详见 references/anti-ai-academic-zh.md" % (
-                  score, ai_tone_check.grade(score),
-                  reg, ai_tone_check.grade_register(reg),
-                  dfe, ai_tone_check.grade_defensive(dfe),
+    tells, claims = report.tells_score, report.claims_score
+    detail = ("AI 痕迹 %d/100（%s）｜ 主张-证据 %d/100（%s）%s；"
+              "逻辑同 academic-humanizer，详见 references/anti-ai-academic-zh.md" % (
+                  tells, ai_tone_check.grade(tells),
+                  claims, ai_tone_check.grade(claims),
                   "，主要命中：%s" % "/".join(top) if top else ""))
-    check("文风", "AI 味检测（提示项，不判失败）", score < 40, detail, warn=True)
+    warn_if("文风", "AI 痕迹与主张-证据（提示项，不判失败）",
+            tells >= 40 or claims >= 40, detail)
+
+
+
 
 
 def check_runs_fonts(doc):

@@ -496,49 +496,49 @@ python scripts/apd.py qa work/report.docx --spec work/spec.json
 TOC 域、页眉页脚域、参考文献缩进、交叉引用、字体白名单、空白页、占位符残留、文风提示。
 `--strict` 把 WARN 也当失败，适合 CI 门禁。
 
-## 文风：三条轴都要低
+## 文风：按 academic-humanizer 的逻辑改稿
 
-排版对完之后，内容本身还可能一眼就是模型写的。这一层来自
-[blader/humanizer](https://github.com/blader/humanizer) 与
-[op7418/Humanizer-zh](https://github.com/op7418/Humanizer-zh) 的思路，
-但按**学术语体**重写了规则与豁免：
+排版对完之后，内容本身还可能一眼是模型写的。这一层**不自研**，整套采用
+[AIScientists-Dev/academic-humanizer](https://github.com/AIScientists-Dev/academic-humanizer)
+（MIT，2.9k★；上游又基于 [blader/humanizer](https://github.com/blader/humanizer) 与 ARMS），
+被多家媒体（含 Nature 相关报道）讨论过。
 
-**一条主线**：措辞强度 = 证据强度。偏高的叫 AI 腔，偏低叫防御性写作，语域不对叫大白话，
-所以检测分三条轴，任一条 ≤20 才算过：
+一条原则：**没有动词可以强过它的证据。**
 
-| 轴 | 字段 | 偏高意味着 | 规则章节 |
-|---|---|---|---|
-| AI 味 | `score` | 空转、拔高、模板化 | §1–§6（S/A/B 级，12 类典型句） |
-| 语体 | `register_score` | 大白话、聊天口吻 | §8（R 级） |
-| 防御性 | `defensive_score` | 免责声明、铺垫让步、模糊限定叠加、结尾强行平衡 | §9（D 级） |
+| 层 | 内容 |
+|---|---|
+| Layer 1 | 通用 AI 痕迹（意义拔高、宣传词、无源权威、长句堆砌、破折号…） |
+| Layer 2 | 学术 AI 痕迹 2.1–2.11（过度断言动词、显著性炒作、新颖性填充、贡献清单套话、模糊限定…） |
+| Layer 3 | **必须保留**：有证据的模糊限制、被动语态、"我们"、术语公式；**数字与引用一字不改** |
+| Layer 4 | 主张-证据纪律（缺证据→补指针或降调；动词强于证据→降级；量级模糊→区间+口径） |
+| Layer 5 | 语体与场合匹配 |
+| Layer 6 | 基金本子模式（NSF/NIH：保留愿景，查"主张 ↔ 可行性"） |
 
-- 规则文件：[references/anti-ai-academic-zh.md](references/anti-ai-academic-zh.md)
-  （三轴总览、before/after、**学术豁免清单**、改写协议、逐句自检）
-- 检测器：`scripts/ai_tone_check.py` —— 词典 + 正则 + 结构指标（句长变异、连接词密度、
-  数字密度、段首复读标题），输出**规则编号 + 段落号 + 原句 + 改法**，只报警不改稿。
+流程也是上游的：**Read → Audit → Rewrite → Report**。
 
 ```bash
-python scripts/apd.py tone --docx work/report.docx        # 给已生成的文档打分定位
-python scripts/apd.py tone --json work/content.json       # 写内容模型时就能查
-python scripts/apd.py tone --json work/content.json --max-score 40   # 超阈值退出码 1
-python scripts/apd.py tone --docx work/report.docx \
-    --max-score 20 --max-register 20 --max-defensive 20               # 三轴都卡
+python scripts/apd.py tone --docx work/report.docx            # 审计：两分数 + 命中清单
+python scripts/apd.py tone --docx work/report.docx --audit    # 只要清单（层/编号/位置/改法）
+python scripts/apd.py tone --json work/content.json --max-score 40   # CI 门禁
 ```
 
-实测（仓库自带样例，同一套规则）：
+两个分数（对应层）：
 
-| 文本 | AI 味 | 语体 | 防御性 |
-|---|---|---|---|
-| `examples/demo/content_model.json`（按规范写的正文） | 0（清爽） | 8（学术语体） | 0（克制） |
-| 刻意堆砌 AI 套话（随着…、不仅…更是…、专家认为…） | 100（重） | 低 | 低 |
-| 大白话对照组（我们觉得…挺不错…搞了半天…） | 0 | 96（大白话） | 低 |
-| 防御性对照组（并非否认…诚然…仍需理性看待…） | 0 | 0 | 100（通篇防御） |
+| 分数 | 含义 |
+|---|---|
+| `tells_score` | AI 痕迹密度（Layer 1 + 2） |
+| `claims_score` | 主张强于证据的程度（Layer 4） |
 
-三条设计取舍，避免把工具做成"词表黑名单"：
+实测（仓库自带样例）：
 
-1. **只报警，不判身份**：模板化公文、翻译腔同样会高分；分数低也不等于合格。
-2. **数据压倒拔高**：同一句里带数字/百分比时，"显著提升"不报。
-3. **学术豁免默认不报**：方法段的被动句、术语化名词化、必要限定、引用格式、图表题注。
+| 文本 | AI 痕迹 | 主张-证据 |
+|---|---|---|
+| `examples/demo/content_model.json`（按规范写的正文） | 0（干净） | 0（干净） |
+| 上游 before 风格的 AI 套话（随着…、首次、广泛实验、证明优于…） | 100（重） | 56（明显） |
+
+**它不是"AI 检测器"**：分数高不等于 AI 写的（模板化公文、翻译腔同样高分），
+分数低也不等于合格（真问题常在论证与数据）。它只负责审计与定位，改稿由人或 agent 完成，
+且**不许改数字、公式、引用**，**不许把有证据的模糊限制改成确定结论**。
 
 ## 跨平台
 

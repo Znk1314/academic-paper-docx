@@ -280,7 +280,7 @@ academic-paper-docx/
 │   ├── format-spec.md          完整规范（权威，35 KB）
 │   ├── figure-table-standard.md 图表规范（核对 GB/T 7713.2 与期刊惯例）
 │   ├── palette.md              配色规范（色板、色盲、灰度、语义）
-│   ├── anti-ai-academic-zh.md  「AI 味」规则、学术豁免清单、改写协议
+│   ├── anti-ai-academic-zh.md  学术文风规则（academic-humanizer 六层，MIT）
 │   ├── checklist.md            交付前人工核对清单
 │   └── troubleshooting.md      已知坑与修复
 ├── examples/
@@ -421,51 +421,42 @@ python <SKILL_DIR>/scripts/figures.py spec.json -o f.png --palette rose6
 | 图片 | 分辨率 ≥600 dpi（线条图目标 1000）；宽 ≤版心、高 ≤22 cm；插入后图内文字 ≥6 pt；等比不变形 |
 | 配色 | 全稿用色来自 `palette.py`；彩色 ≤5 种 |
 
-## 12. 正文的「AI 味」：怎么认、怎么改、哪里不能改
+## 12. 正文文风：按 academic-humanizer 的逻辑改稿
 
-完整规则在 `references/anti-ai-academic-zh.md`（含 before/after、学术豁免清单、§8 反大白话）。
+改稿规则整套采用
+[AIScientists-Dev/academic-humanizer](https://github.com/AIScientists-Dev/academic-humanizer)（MIT），
+中文适配见 `references/anti-ai-academic-zh.md`。**本 skill 不再自研去 AI 味规则。**
 
-`ai_tone_check.py` 给**三个分数**，都要 ≤20：
+一条原则：**没有动词可以强过它的证据。** 每一条主张都要挣得自己的数字、图或引用。
 
-| 轴 | 字段 | 偏高意味着 | 文档 |
-|---|---|---|---|
-| AI 味 | `score` | 空转、拔高、模板化 | §1–§6 |
-| 语体 | `register_score` | 大白话、聊天口吻 | §8 |
-| 防御性 | `defensive_score` | 免责声明、铺垫让步、模糊限定叠加、结尾强行平衡 | §9 |
+四步（与上游一致）：**Read**（认文体与场合）→ **Audit**（列命中与证据状态，不动笔）→
+**Rewrite**（结构内容不变，去痕迹、把过强的话降到证据水平）→ **Report**（改动清单）。
 
-三者共同目标是**措辞强度 = 证据强度**：只压 AI 味会写成大白话，
-只求严谨会写成通篇防御，只看文采会浮夸。自检命令：
+六层结构：
 
-```bash
-python scripts/apd.py tone draft.docx --max-score 20 --max-register 20 --max-defensive 20
-```
-这里只留执行要点。
+| 层 | 内容 |
+|---|---|
+| Layer 1 | 通用 AI 痕迹（意义拔高、宣传词、无源权威、长句、破折号…） |
+| Layer 2 | 学术 AI 痕迹 2.1–2.11（过度断言动词、显著性炒作、新颖性填充、贡献清单套话…） |
+| Layer 3 | **必须保留**（有证据的模糊限制、被动语态、"我们"、术语、公式；数字与引用一字不改） |
+| Layer 4 | 主张-证据纪律（缺证据→补指针或降调；动词强于证据→降级；量级模糊→区间+口径） |
+| Layer 5 | 语体与场合匹配（期刊风格、作者本人节奏） |
+| Layer 6 | 基金本子模式（NSF/NIH：保留愿景，查"主张 ↔ 可行性"） |
 
-**写作时（不是写完再洗）就避开这 6 类**：
+脚本只做可枚举部分的 **Audit**，输出两个分数：
 
-| 类别 | 典型句 | 改成 |
+| 分数 | 含义 | 对应层 |
 |---|---|---|
-| 空转意义句 | 具有重要的理论意义和现实价值 | 这个结论约束了什么 |
-| 数据缺席的拔高 | 显著提升了精度 | 指标 + 数值 + 对比 + 条件 |
-| 假对比/假递进 | 不仅是…更是…；不是…而是… | 直接说肯定项 |
-| 段末复述收尾 | 由此可见…的重要性 | 删掉，或写带条件的推论 |
-| 元话语铺垫 | 本节将…；随着…的快速发展 | 直接给内容 |
-| 术语漂移 | 节点/采集端/终端设备混用 | 首次定义后固定不变 |
-
-**不要洗掉的（学术语体，不是 AI 味）**：方法段的被动句、术语化名词化（收敛性、有限元分析）、
-必要限定（可能/尚未验证）、每章一次的"综上所述"、引用格式、公式符号、图表题注、参考文献。
-
-**改写协议**：先标记（S 一次即改 / A 重复即改 / B 需凑证据）→ 再重写（不新增事实、不删独立信息、
-不改确定程度、术语固定、句长交替）→ 后检（朗读 + 查 S 级残留）→ 直接交成稿。
-
-**自检**：
+| `tells_score` | AI 痕迹密度 | Layer 1 + Layer 2 |
+| `claims_score` | 主张强于证据的程度 | Layer 4 |
 
 ```bash
 python <SKILL_DIR>/scripts/apd.py tone --docx work/report.docx
+python <SKILL_DIR>/scripts/apd.py tone --docx work/report.docx --audit    # 审计清单
 python <SKILL_DIR>/scripts/apd.py tone --json work/content.json --max-score 40   # CI 门禁
 ```
 
-分数只是**定位工具**：高不等于 AI 写的（模板公文、翻译腔也会高），低也不等于合格
-（真问题常在论证与数据）。它列出规则编号、段落号和原句，改不改由人判断。
-
+改稿时守三条：**数字/公式/引用不许改**；**有证据的模糊限制必须保留**（把 suggest 改成
+prove 是制造过度断言）；**主张必须落到数字/图/表/引用**。
+`qa_check` 的文风项只提示（≥40 分告警），不判 FAIL。
 
