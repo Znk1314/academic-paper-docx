@@ -41,7 +41,12 @@ jobs:
         run: python -m ruff check .
 
       - name: Unit tests (pytest)
-        run: python -m pytest -q || (python -m pytest -x -vv --tb=long; exit 1)
+        shell: bash
+        run: |
+          python -m pytest -q || (
+            python -m pytest -x -vv --tb=short 2>&1 | tail -40 | sed 's/^/::error::/'
+            exit 1
+          )
 
       - name: Environment self-check
         if: matrix.python == '3.12'
