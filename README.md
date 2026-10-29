@@ -157,7 +157,7 @@ python scripts/apd.py demo -o build/demo
 | 能力 | 需要什么 | 缺了会怎样 |
 |---|---|---|
 | 生成 .docx（核心） | Python 3.9+、`python-docx`、`lxml` | —— 必需 |
-| 出图（`apd figure`） | `matplotlib`、`numpy` | 跳过出图，docx 里可以只放已有图片 |
+| 出图（`apd recipe`） | `matplotlib`、`numpy` | 跳过出图，docx 里可以只放已有图片 |
 | 图片分辨率质检 | `Pillow` | 少一项检查 |
 | 中文图内文字 | 任一中文字体（雅黑/黑体/Noto Sans CJK/萍方/文泉驿） | 中文显示方框，可用 `APD_CJK_FONT=<字体名>` 指定 |
 | 自动更新目录 + 导 PDF | Microsoft Word（Windows）或 LibreOffice | docx 照常生成；打开后按 F9 手动更新目录即可 |

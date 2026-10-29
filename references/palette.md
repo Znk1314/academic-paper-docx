@@ -103,7 +103,7 @@ python scripts/apd.py recipe new <id> --out work/figs   # 拷出配方源码后�
 ## 9. 上手流程
 
 1. 定数据类型（定性 / 顺序 / 发散）→ 选 `SERIES` / `SEQUENTIAL` / `DIVERGENT`。
-2. 画图：`python scripts/figures.py spec.json -o fig.png --grayscale`
+2. 画图：`python scripts/apd.py recipe new <id> --out work/figs`，改 `_kit.py` 里的色板常量
    —— 配色不合规会**直接报错**（色板外颜色、红绿色盲下同色）。
 3. 看灰度版：黑白打印还能不能读？不能就加/改冗余编码。
 4. 交付前跑 `python scripts/apd.py qa work/report.docx`，`[配色]` 组必须全 OK。
@@ -158,7 +158,7 @@ python scripts/apd.py palette            # 全部 9 套
 python scripts/apd.py palette rose6      # 单套，列 3/4/5 类子集
 
 # 出图时指定色卡（自动取安全子集；显式 color 优先）
-python scripts/figures.py fig.json -o fig.png --palette rose6
+python scripts/apd.py recipe list        # 同一套 Okabe-Ito 常量在 recipes/_kit.py
 ```
 
 ```jsonc

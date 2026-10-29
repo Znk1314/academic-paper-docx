@@ -15,8 +15,6 @@
 from __future__ import annotations
 
 import argparse
-import glob
-import json
 import os
 import shutil
 import subprocess
@@ -65,11 +63,6 @@ def cmd_preview(args):
     return render_preview.main(argv)
 
 
-def cmd_chart(args):
-    import make_chart
-    return make_chart.main([args.spec, "-o", args.output])
-
-
 def cmd_palette(args):
     """列出主题色卡，并给出 n 类时的"安全子集"与实测判据。"""
     import palette
@@ -99,7 +92,7 @@ def cmd_palette(args):
                   % (n, " ".join(sub["colors"]), sub["min_cvd"],
                      sub["min_dl"], sub["verdict"]))
     print("=" * 74)
-    print("用法：figures.py spec.json -o fig.png --palette rose6")
+    print("用法：apd recipe list ｜ apd recipe new <id> --out work/figs")
     return 0
 
 
@@ -275,7 +268,7 @@ def cmd_doctor(args):
         print("出图可用：matplotlib + numpy 已就绪%s" % ("" if font_ok else
                                      "（但无中文字体，中文会显示方框）"))
     else:
-        print("未装 matplotlib：跳过出图（apd figure）；docx 生成不受影响")
+        print("未装 matplotlib：跳过出图（apd recipe）；docx 生成不受影响")
     if optional:
         print("可选能力缺失：%s" % "、".join(optional))
         print("  · 无 Word/LibreOffice：不影响生成 docx，只是不能自动更新目录与导出 PDF")
@@ -293,18 +286,29 @@ def cmd_demo(args):
     demo_dir = os.path.join(REPO, "examples", "demo")
     os.makedirs(out, exist_ok=True)
 
-    charts = sorted(glob.glob(os.path.join(demo_dir, "charts", "*.json")))
-    for spec in charts:
-        with open(spec, encoding="utf-8") as fh:
-            name = json.load(fh).get("output") or os.path.splitext(os.path.basename(spec))[0]
+    # 示例图由配方脚本生成（examples/demo/src/gen_fig_*.py + data/*.csv）
+    src_dir = os.path.join(demo_dir, "src")
+    data_dir = os.path.join(demo_dir, "data")
+    pairs = [("gen_fig_bar_single.py", "fig1_duty"),
+             ("gen_fig_line_multiseries.py", "fig2_power"),
+             ("gen_fig_bar_grouped.py", "fig3_nodes"),
+             ("gen_fig_scatter_fit.py", "fig4_scatter"),
+             ("gen_fig_boxgroup.py", "fig5_box"),
+             ("gen_fig_heatmap_seq.py", "fig6_heatmap")]
+    widths = {"fig5_box": "86"}
+    for script_name, name in pairs:
+        script = os.path.join(src_dir, script_name)
+        data = os.path.join(data_dir, name + ".csv")
+        if not (os.path.exists(script) and os.path.exists(data)):
+            continue
         target = os.path.join(demo_dir, "figs", name + ".png")
         print("图表 → %s" % os.path.relpath(target, REPO))
-        try:
-            import make_chart
-            make_chart.main([spec, "-o", target])
-        except ImportError as exc:
-            print("  跳过出图（%s）；仓库自带示例图片可直接使用。" % exc)
-            break
+        argv = [sys.executable, script, data, target]
+        if name in widths:
+            argv.append(widths[name])
+        rc = subprocess.call(argv)
+        if rc != 0:
+            print("  出图失败（%s）；仓库自带示例图片可直接使用。" % script_name)
 
     docx = os.path.join(out, "demo_report.docx")
     print("文档 → %s" % docx)

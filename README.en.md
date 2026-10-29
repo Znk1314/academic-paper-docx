@@ -201,7 +201,7 @@ CI: Windows / Linux / macOS × Python 3.9 / 3.12 — lint, unit tests, end-to-en
 
 - Data authenticity is your job; the tool only reminds you with `[待补充/待核实]` and "simulated data" notes.
 - Word is the final judge: LibreOffice's OMML/field support is incomplete — verify in Word before delivery.
-- Re-skinning colors requires regenerating figures with `make_chart.py` (same palette).
+- Re-skinning colors requires re-running the recipes that produced each figure (see `make_chart.py` (same palette).
 - QA hard-codes the default palette; pass `--spec` when you change it.
 
 ## Contributing
