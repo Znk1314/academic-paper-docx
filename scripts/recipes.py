@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 """配方工具的 CLI：列出配方、拷出完整源码、跑图、核对数据契约与保真改动。
 
-工作方式（与 vivid-illustration 一类"模板 + 源码适配"思路一致，代码与配方均为本项目自写）：
+工作方式：配方 = 完整可运行源码；拷到工作区后适配，再回检数据契约与设计改动。
 
   1. **选择** `apd recipe list` / `apd recipe info <id>`：按数据语义选配方，看数据契约与保真要点
   2. **适配** `apd recipe new <id> --out work/figs`：把**完整源码**拷成
