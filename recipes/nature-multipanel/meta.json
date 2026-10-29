@@ -1,0 +1,42 @@
+{
+  "id": "nature-multipanel",
+  "title": "Nature 双栏多面板（a/b/c/d）",
+  "channel": "data",
+  "language": "zh",
+  "journal": "nature",
+  "style": "nature",
+  "final_size": "183 mm（双栏）",
+  "when": "一张图讲 2—4 个子结论；需要统一字号、配色与坐标尺度。",
+  "data_contract": {
+    "file": "CSV，UTF-8",
+    "required_columns": [
+      "panel",
+      "group",
+      "x",
+      "y"
+    ],
+    "optional_columns": [],
+    "min_rows": 12,
+    "notes": "数值来自真实输入；缺层按统计含义移除，不补造。"
+  },
+  "fidelity": [
+    "按最终尺寸出图（Nature：单栏 89 mm / 双栏 183 mm），插入后不再缩放",
+    "字号 7 pt、最小 6 pt；轴线 0.5 pt；无上/右轴线与网格",
+    "颜色 + 标记/线型双重编码；黑白与色盲可读",
+    "轴标目为“量符号/单位”，符号斜体、单位正体",
+    "面板标签用 figure 坐标，不手摆 ax.text",
+    "四面板共用同一坐标范围与同一套颜色",
+    "字号 7 pt（最小 6 pt）、轴线 0.5 pt"
+  ],
+  "verify": [
+    "打开输出图：面板标签对齐、图例不压数据、无文字裁切",
+    "核对统计口径与 n；误差类型写进图注",
+    "确认插入后字 ≥6 pt（docx 端会再核算）"
+  ],
+  "outputs": [
+    "png",
+    "pdf",
+    "svg"
+  ],
+  "preview": "preview.png"
+}

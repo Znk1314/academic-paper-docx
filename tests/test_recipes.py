@@ -19,7 +19,8 @@ DATA = os.path.join(REPO, "examples", "demo", "data")
 _ENV = dict(os.environ, PYTHONUTF8="1", PYTHONIOENCODING="utf-8")
 
 EXPECTED = {"line-multiseries", "bar-single", "bar-grouped",
-            "scatter-fit", "boxgroup", "heatmap-seq"}
+            "scatter-fit", "boxgroup", "heatmap-seq",
+            "nature-multipanel", "nature-dotplot"}
 
 
 def test_catalog_has_expected_recipes():
@@ -37,7 +38,11 @@ def test_meta_is_complete(rid):
     assert os.path.exists(os.path.join(RES, rid, "preview.png"))
 
 
-@pytest.mark.parametrize("rid", sorted(EXPECTED))
+BASE_RECIPES = {"line-multiseries", "bar-single", "bar-grouped",
+                "scatter-fit", "boxgroup", "heatmap-seq"}
+
+
+@pytest.mark.parametrize("rid", sorted(BASE_RECIPES))
 def test_recipe_runs_and_writes_metadata(rid, tmp_path):
     csv = {"line-multiseries": "fig2_power", "bar-single": "fig1_duty",
            "bar-grouped": "fig3_nodes", "scatter-fit": "fig4_scatter",
@@ -98,3 +103,76 @@ def test_heatmap_rejects_rainbow(tmp_path):
     rc = subprocess.call([sys.executable, str(script), str(csv),
                           str(tmp_path / "o.png")], env=_ENV)
     assert rc != 0                          # 拒绝彩虹色谱
+
+
+# ---------------------------------------------------------------- Nature 体例
+
+@pytest.mark.parametrize("journal,single,double", [
+    ("nature", 89.0, 183.0), ("science", 55.0, 183.0),
+    ("ieee", 88.9, 181.0), ("csae", 86.0, 182.0), ("thesis", 75.0, 155.0)])
+def test_journal_widths(journal, single, double):
+    sys.path.insert(0, RES)
+    import _kit as K
+
+    assert K.width_for(journal, "single") == single
+    assert K.width_for(journal, "double") == double
+
+
+def test_nature_meta_declares_style_and_size():
+    for rid in ("nature-multipanel", "nature-dotplot"):
+        meta = recipes._meta(rid)
+        assert meta["journal"] == "nature" and meta["style"] == "nature"
+        assert "mm" in meta["final_size"]
+        assert any("6 pt" in item or "7 pt" in item for item in meta["fidelity"])
+
+
+def test_nature_dotplot_outputs_three_formats(tmp_path):
+    csv = tmp_path / "d.csv"
+    csv.write_text("group,value\nA,0.1\nA,0.2\nA,0.3\nB,0.4\nB,0.5\nB,0.6\n",
+                   encoding="utf-8")
+    out = tmp_path / "d.png"
+    rc = subprocess.call([sys.executable,
+                          os.path.join(RES, "nature-dotplot", "recipe.py"),
+                          str(csv), str(out)], env=_ENV)
+    assert rc == 0
+    assert out.exists() and (tmp_path / "d.pdf").exists() and (tmp_path / "d.svg").exists()
+    with Image.open(out) as img:
+        mm = img.size[0] / img.info["dpi"][0] * 25.4
+    assert mm == pytest.approx(89, abs=1)          # Nature 单栏
+
+
+def test_dotplot_rejects_too_few_points(tmp_path):
+    csv = tmp_path / "few.csv"
+    csv.write_text("group,value\nA,0.1\nA,0.2\n", encoding="utf-8")
+    rc = subprocess.call([sys.executable,
+                          os.path.join(RES, "nature-dotplot", "recipe.py"),
+                          str(csv), str(tmp_path / "o.png")], env=_ENV)
+    assert rc != 0                                  # 少于 3 点应被拒
+
+
+def test_check_flags_pitfalls(tmp_path, capsys):
+    script = tmp_path / "gen_fig_pie.py"
+    script.write_text("import matplotlib.pyplot as plt\n"
+                      "plt.pie([1, 2, 3])\n"
+                      "fig, ax = plt.subplots()\nax2 = ax.twinx()\n", encoding="utf-8")
+    recipes.main(["check", str(script), "--recipe", "bar-single"])
+    out = capsys.readouterr().out
+    assert "P-饼图" in out and "P-双 Y 轴" in out
+
+
+def test_nature_multipanel_runs(tmp_path):
+    rows = ["panel,group,x,y"]
+    for label in ("a", "b", "c", "d"):
+        for g, base in (("对照组", 0.4), ("处理组", 0.6)):
+            for i in (1, 2, 3):
+                rows.append("%s,%s,%d,%.2f" % (label, g, i, base + i * 0.01))
+    csv = tmp_path / "m.csv"
+    csv.write_text("\n".join(rows) + "\n", encoding="utf-8")
+    out = tmp_path / "m.png"
+    rc = subprocess.call([sys.executable,
+                          os.path.join(RES, "nature-multipanel", "recipe.py"),
+                          str(csv), str(out)], env=_ENV)
+    assert rc == 0
+    with Image.open(out) as img:
+        mm = img.size[0] / img.info["dpi"][0] * 25.4
+    assert mm == pytest.approx(183, abs=1)          # Nature 双栏

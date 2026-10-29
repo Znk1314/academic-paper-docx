@@ -14,8 +14,20 @@
 - **全部示例用新版本重生成**：学位论文 demo（56 项通过）、期刊稿 csae（23 项通过）、
   7 张预览截图 + PDF 均按当前代码重出
 
-### Changed
+### Added
 
+- **Nature / Science 期刊体例（借鉴 MIT 许可项目）**：
+  - `recipes/_kit.py` 新增 `JOURNAL_WIDTHS`（nature 89/183、science 55/183、ieee 88.9/181、
+    elsevier 90/190、pnas 87/178、csae 86/182、thesis 75/155）、`width_for()`、
+    `apply_style()`（多子图先配字体）、`panel_label()`（轴分数坐标，constrained 下不错位）；
+    `save()` 默认输出 PNG + PDF + **SVG**
+  - 新增配方 `nature-multipanel`（183 mm 四面板 + a/b/c/d、只左列标 y、只底行标 x、
+    图例 outside 不压数据）与 `nature-dotplot`（89 mm，n=3—12 改用点图替代均值柱）
+  - `apd recipe check` 增加**问题图型静态拦截**：饼图、双 Y 轴、jet/rainbow、3D、
+    "柱状+误差棒但无散点"，命中给替代方案（不阻断）
+  - 新增 `references/nature-style.md`：成品尺寸表、五条硬原则、9 类拦截、面板标签规则、
+    三层自检；规则来源为 MIT 许可的 scipilot-figure-skill（2.7k★）与 Icarus-Figures，
+    代码与配方自写
 - **Windows 编码修复**：配方脚本把中文写到 cp1252 控制台会抛 `UnicodeEncodeError`
   （Windows CI 上表现为 pytest 失败）。现由 `_kit.say()` 兜底、`apd recipe run` /
   `apd demo` 子进程强制 UTF-8、`_console.setup()` 在 Windows 下 reconfigure。

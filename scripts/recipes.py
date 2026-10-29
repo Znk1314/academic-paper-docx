@@ -30,6 +30,20 @@ RECIPES = os.path.join(REPO, "recipes")
 KIT = os.path.join(RECIPES, "_kit.py")
 
 # 设计块：这些行被改动时要提示"先确认是有意的"
+# 科研画图的经典错误：check 时静态扫描，命中就明确提示（不阻断）
+PITFALLS = [
+    (r"\bplt\.pie\(|\bax\.pie\(", "P-饼图",
+     "饼图判角度差长度约 3 倍：改用横向柱状并按值排序"),
+    (r"\btwinx\(\)|\btwiny\(\)|secondary_yaxis", "P-双 Y 轴",
+     "双 Y 轴会制造视觉相关：拆上下子图共享 x，或标准化共轴"),
+    (r"cmap\s*=\s*['\"](?:jet|rainbow|nipy_spectral|hsv)['\"]", "P-彩虹色谱",
+     "jet/rainbow 感知不均匀会凭空造峰：改 cividis/viridis/RdBu_r"),
+    (r"projection\s*=\s*['\"]3d['\"]", "P-3D 图",
+     "3D 视角扭曲数值：改 2D 柱或热图"),
+]
+MEANBAR_RE = re.compile(r"ax\.bar\(|\.bar\(")
+SCATTER_RE = re.compile(r"\.plot\([^)]*linestyle\s*=\s*['\"]none|scatter\(|stripplot")
+
 DESIGN_MARKERS = ("SERIES", "LINESTYLES", "MARKERS", "STYLE", "rcParams",
                   "fontsize", "linewidth", "cmap", "set_ylim", "set_xlim",
                   "figsize", "dpi", "savefig")
@@ -143,6 +157,9 @@ def cmd_check(args):
         if ok:
             print("✓ 数据契约通过（%d 行 × %d 列）" % (len(rows), len(header)))
 
+    if os.path.exists(args.script):
+        _scan_pitfalls(args.script, rid)
+
     base_path = os.path.join(RECIPES, rid, "recipe.py")
     if os.path.exists(args.script):
         changed, design = _diff(base_path, args.script)
@@ -157,6 +174,23 @@ def cmd_check(args):
                 print("  提示：改字号/线宽/配色/图幅前先确认是有意的适配，"
                       "保真要点见 apd recipe info %s" % rid)
     return 0 if ok else 1
+
+
+def _scan_pitfalls(script, rid):
+    """静态扫描经典错误图型；命中只提示，不阻断。"""
+    with open(script, encoding="utf-8") as fh:
+        text = fh.read()
+    hits = []
+    for pattern, name, advice in PITFALLS:
+        if re.search(pattern, text):
+            hits.append((name, advice))
+    if MEANBAR_RE.search(text) and not SCATTER_RE.search(text):
+        hits.append(("P-均值柱掩盖分布",
+                     "柱状只有高度与一根误差棒时，n<10 请改 dotplot/箱线并叠加每个点"))
+    for name, advice in hits:
+        print("! [%s] %s" % (name, advice))
+    if hits:
+        print("  （以上为建议，不阻断；见 references/nature-style.md §3）")
 
 
 def _guess_recipe(script):

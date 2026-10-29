@@ -351,6 +351,11 @@ python <SKILL_DIR>/scripts/apd.py recipe check work/figs/gen_fig_line_multiserie
 - 适配守则与配方清单见 `references/recipes.md`
 - 交付 **PNG/PDF + 可复现脚本**；PNG 自带 `width_mm/font_pt` 元数据供 docx 核算字号
 
+按刊取成品宽度（插入后不缩放）：`nature` 89/183 mm、`science` 55/183、`ieee` 88.9/181、
+`elsevier` 90/190、`pnas` 87/178、`csae` 86/182、学位论文 75/155。
+Nature 体例规则（7 pt 字号、0.5 pt 轴线、a/b/c 面板标签、误差必交代、9 类问题图型拦截）
+见 `references/nature-style.md`。
+
 出图硬约束（不符合会被 `qa` 拦）：
 - 颜色只能取自 Okabe-Ito（配方 `_kit.py` 已内置），且必须叠加线型/标记
 - 定量数据禁用 jet/rainbow

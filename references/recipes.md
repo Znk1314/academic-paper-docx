@@ -46,6 +46,8 @@ python scripts/apd.py recipe check work/figs/gen_fig_line_multiseries.py --data 
 | `scatter-fit` | 散点 + 1:1 参考线 | `x,<系列...>` |
 | `boxgroup` | 分组箱线（含离群点） | `group,value`（长表） |
 | `heatmap-seq` | 顺序色板热图（cividis） | `row,<列...>` |
+| `nature-multipanel` | Nature 双栏四面板 + a/b/c/d | `panel,group,x,y` |
+| `nature-dotplot` | 小组样本点图（替代均值柱） | `group,value`（每组 3—12 点） |
 
 每个配方目录下有 `recipe.py`（完整源码）、`meta.json`（适用/契约/保真/自查）、`preview.png`（预览）。
 
@@ -59,6 +61,24 @@ python scripts/apd.py recipe check work/figs/gen_fig_line_multiseries.py --data 
    新增组别可扩画布/面板。
 5. **不加装饰**：无 3D、无渐变背景、无彩虹色谱（`heatmap-seq` 会在代码里直接拒绝）。
 6. **数据不补造**：某层没有证据就按统计含义移除，并在图注说明。
+
+## 期刊尺寸与 Nature 体例
+
+按刊取成品宽度用 `K.width_for(journal, span)`：
+
+| 刊 | 单栏 | 双栏 |
+|---|---|---|
+| nature | 89 mm | 183 mm |
+| science | 55 mm | 183 mm |
+| ieee | 88.9 mm | 181 mm |
+| elsevier | 90 mm | 190 mm |
+| pnas | 87 mm | 178 mm |
+| csae | 86 mm | 182 mm |
+| thesis | 75 mm | 155 mm |
+
+体例规则（按最终尺寸出图、矢量优先、色盲冗余编码、最小 6 pt、误差必交代、
+主动拦截 9 类问题图型）见 `references/nature-style.md`（规则借鉴 MIT 许可的
+scipilot-figure-skill 与 Icarus-Figures，代码自写）。
 
 ## 与文档的衔接
 

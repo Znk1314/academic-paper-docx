@@ -1,0 +1,39 @@
+{
+  "id": "nature-dotplot",
+  "title": "小组样本点图（替代均值柱）",
+  "channel": "data",
+  "language": "zh",
+  "journal": "nature",
+  "style": "nature",
+  "final_size": "89 mm（单栏）",
+  "when": "每组 n=3—12：柱高加误差棒会掩盖分布，必须把点画出来。",
+  "data_contract": {
+    "file": "CSV，UTF-8",
+    "required_columns": [
+      "group",
+      "value"
+    ],
+    "optional_columns": [],
+    "min_rows": 9,
+    "notes": "数值来自真实输入；缺层按统计含义移除，不补造。"
+  },
+  "fidelity": [
+    "按最终尺寸出图（Nature：单栏 89 mm / 双栏 183 mm），插入后不再缩放",
+    "字号 7 pt、最小 6 pt；轴线 0.5 pt；无上/右轴线与网格",
+    "颜色 + 标记/线型双重编码；黑白与色盲可读",
+    "轴标目为“量符号/单位”，符号斜体、单位正体",
+    "每个观测点可见；中位数用粗横线",
+    "n<10 时**不要**用均值柱（审稿人会要求 show individual points）"
+  ],
+  "verify": [
+    "打开输出图：面板标签对齐、图例不压数据、无文字裁切",
+    "核对统计口径与 n；误差类型写进图注",
+    "确认插入后字 ≥6 pt（docx 端会再核算）"
+  ],
+  "outputs": [
+    "png",
+    "pdf",
+    "svg"
+  ],
+  "preview": "preview.png"
+}

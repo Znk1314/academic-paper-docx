@@ -31,17 +31,32 @@ GRID = "#D9D9D9"
 STYLE = {
     "cn": dict(font=8.5, label=9.0, legend=8.0, lw=1.1, ms=4.0,
                tick=0.7, spine=0.7, grid_alpha=0.25),
+    # Nature 正刊体例：正文/刻度 7 pt、最小 6 pt；轴线 0.5 pt；无网格、无上/右轴
     "nature": dict(font=7.0, label=7.0, legend=6.0, lw=0.75, ms=2.8,
                    tick=0.5, spine=0.5, grid_alpha=0.0),
+    # Science 体例：更小的字号与更细的线
+    "science": dict(font=6.5, label=7.0, legend=6.0, lw=0.6, ms=2.5,
+                    tick=0.5, spine=0.5, grid_alpha=0.0),
     "ieee": dict(font=8.0, label=8.0, legend=7.0, lw=1.2, ms=4.0,
                  tick=0.8, spine=0.8, grid_alpha=0.2),
 }
 CJK_FONTS = ["Microsoft YaHei", "SimHei", "Noto Sans CJK SC",
              "Source Han Sans SC", "PingFang SC", "WenQuanYi Zen Hei"]
 
+# 各刊成品尺寸（mm）：(单栏, 双栏)。出图即最终尺寸，插入文档后不再缩放。
+JOURNAL_WIDTHS = {
+    "nature": (89.0, 183.0),
+    "science": (55.0, 183.0),
+    "ieee": (88.9, 181.0),
+    "elsevier": (90.0, 190.0),
+    "pnas": (87.0, 178.0),
+    "csae": (86.0, 182.0),
+    "thesis": (75.0, 155.0),
+}
 
-def setup(width_mm=140.0, height_mm=None, aspect=0.62, style="cn"):
-    """建好画布与坐标轴：字体、线宽、单侧轴线、rcParams 一次到位。"""
+
+def apply_style(style="cn"):
+    """只配置 rcParams 与字体（多子图要在建 axes 之前调用）。"""
     st = STYLE.get(style, STYLE["cn"])
     available = {f.name for f in font_manager.fontManager.ttflist}
     cjk = os.environ.get("APD_CJK_FONT", "").strip() or next(
@@ -65,6 +80,12 @@ def setup(width_mm=140.0, height_mm=None, aspect=0.62, style="cn"):
         "xtick.major.size": 3.0,
         "ytick.major.size": 3.0,
     })
+    return st
+
+
+def setup(width_mm=140.0, height_mm=None, aspect=0.62, style="cn"):
+    """建好画布与坐标轴：字体、线宽、单侧轴线、rcParams 一次到位。"""
+    st = apply_style(style)
     h = height_mm if height_mm is not None else width_mm * aspect
     fig, ax = plt.subplots(figsize=(width_mm / MM_PER_INCH, h / MM_PER_INCH))
     fig.set_layout_engine("constrained")
@@ -114,8 +135,26 @@ def bracket(ax, x1, x2, label_text, y=None, st=None):
     ax.set_ylim(lo, hi + span * 0.06)
 
 
+def panel_label(fig, ax, text, style="nature"):
+    """子图序号：轴分数坐标 + 统一偏移，constrained_layout 下也不会错位。
+
+    Nature 用加粗小写 a/b/c；IEEE 用 (a)(b)(c)。
+    """
+    label = "(%s)" % text if style == "ieee" else text
+    weight = "normal" if style == "ieee" else "bold"
+    ax.text(-0.155, 1.045, label, transform=ax.transAxes,
+            fontsize=STYLE.get(style, STYLE["cn"])["label"] + 1.0,
+            fontweight=weight, ha="left", va="bottom", clip_on=False)
+
+
+def width_for(journal="nature", span="single"):
+    """按期刊与栏型取最终宽度（mm）。span: single / double。"""
+    pair = JOURNAL_WIDTHS.get(journal, JOURNAL_WIDTHS["thesis"])
+    return pair[0] if span == "single" else pair[1]
+
+
 def save(fig, out, width_mm=140.0, base_font_pt=8.5, style="cn",
-         dpi=1000, formats=("png", "pdf")):
+         dpi=1000, formats=("png", "pdf", "svg")):
     """保存并写元数据：docx 端据此核算"插入后图内文字还剩几 pt"。"""
     out = os.path.abspath(out)
     os.makedirs(os.path.dirname(out) or ".", exist_ok=True)

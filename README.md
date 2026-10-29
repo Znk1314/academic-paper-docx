@@ -403,7 +403,7 @@ academic-paper-docx/
 拷到工作区后在真实文件上改数据与标签，交付 **PNG/PDF + 可复现源码**。
 
 ```bash
-python scripts/apd.py recipe list                      # 6 个配方：折线/柱状/分组柱/散点/箱线/热图
+python scripts/apd.py recipe list                      # 8 个配方：折线/柱状/分组柱/散点/箱线/热图 + Nature 多面板/点图
 python scripts/apd.py recipe info line-multiseries     # 数据契约 + 保真要点
 python scripts/apd.py recipe new line-multiseries --out work/figs
 python scripts/apd.py recipe run work/figs/gen_fig_line_multiseries.py \
@@ -415,7 +415,10 @@ python scripts/apd.py recipe check work/figs/gen_fig_line_multiseries.py --data 
 - **坐标轴**：`量符号/单位`，符号斜体、单位正体；只留左/下轴线；柱图零基线。
 - **配色**：Okabe-Ito（配方 `_kit.py` 内置）；`jet/rainbow` 在热图配方里直接拒绝。
 - **冗余编码**：颜色 + 线型 + 标记三重区分，黑白打印与色觉障碍都能读。
-- **分辨率**：默认 1000 dpi PNG + PDF 矢量；PNG 自带 `width_mm/font_pt` 元数据，
+- **Nature 体例**：89/183 mm 成品宽度、7 pt 字号、a/b/c 面板标签、矢量 SVG；
+  规则见 [references/nature-style.md](references/nature-style.md)（借鉴 MIT 许可的
+  scipilot-figure-skill 与 Icarus-Figures，代码自写）。
+- **分辨率**：默认 1000 dpi PNG + PDF + SVG 矢量；PNG 自带 `width_mm/font_pt` 元数据，
   docx 端据此核算"插入后图内文字还剩几 pt"。
 
 规范与自查清单：[references/figure-table-standard.md](references/figure-table-standard.md)、
