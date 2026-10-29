@@ -16,6 +16,9 @@
 
 ### Changed
 
+- **Windows 编码修复**：配方脚本把中文写到 cp1252 控制台会抛 `UnicodeEncodeError`
+  （Windows CI 上表现为 pytest 失败）。现由 `_kit.say()` 兜底、`apd recipe run` /
+  `apd demo` 子进程强制 UTF-8、`_console.setup()` 在 Windows 下 reconfigure。
 - **出图逻辑整体替换为「配方 + 源码适配」**，删除原通用渲染器：
   - 移除 `scripts/figures.py`、`scripts/make_chart.py`、`examples/demo/charts/*.json`、
     `tests/test_figures.py`，以及 `apd figure` / `apd chart` 子命令
