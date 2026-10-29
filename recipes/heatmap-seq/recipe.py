@@ -46,7 +46,7 @@ def main():
     bar.set_label(K.label(cfg["value_name"], cfg["value_unit"], cfg["bar_symbol"]),
                   fontsize=st["font"])
     K.save(fig, out, width_mm=width_mm, base_font_pt=st["font"], style=cfg["style"])
-    print("已生成：%s" % out)
+    K.say("已生成：%s" % out)
 
 
 if __name__ == "__main__":

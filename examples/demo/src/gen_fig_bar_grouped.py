@@ -51,7 +51,7 @@ def main():
     ax.legend(loc=cfg["legend_loc"], frameon=False)
     K.grid(ax, st)
     K.save(fig, out, width_mm=width_mm, base_font_pt=st["font"], style=cfg["style"])
-    print("已生成：%s" % out)
+    K.say("已生成：%s" % out)
 
 
 if __name__ == "__main__":

@@ -15,6 +15,9 @@ REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 RES = os.path.join(REPO, "recipes")
 DATA = os.path.join(REPO, "examples", "demo", "data")
 
+# Windows CI 默认 cp1252 控制台，子进程必须强制 UTF-8（否则中文打印会抛异常）
+_ENV = dict(os.environ, PYTHONUTF8="1", PYTHONIOENCODING="utf-8")
+
 EXPECTED = {"line-multiseries", "bar-single", "bar-grouped",
             "scatter-fit", "boxgroup", "heatmap-seq"}
 
@@ -41,7 +44,8 @@ def test_recipe_runs_and_writes_metadata(rid, tmp_path):
            "boxgroup": "fig5_box", "heatmap-seq": "fig6_heatmap"}[rid]
     out = tmp_path / "fig.png"
     rc = subprocess.call([sys.executable, os.path.join(RES, rid, "recipe.py"),
-                          os.path.join(DATA, csv + ".csv"), str(out)])
+                          os.path.join(DATA, csv + ".csv"), str(out)],
+                         env=_ENV)
     assert rc == 0
     with Image.open(out) as img:
         dpi = img.info["dpi"][0]
@@ -88,8 +92,9 @@ def test_heatmap_rejects_rainbow(tmp_path):
     script = tmp_path / "gen.py"
     body = open(os.path.join(RES, "heatmap-seq", "recipe.py"), encoding="utf-8").read()
     body = body.replace('cmap="cividis"', 'cmap="jet"')
-    body = body.replace('os.path.dirname(__file__)', repr(str(RES)))
+    import shutil
+    shutil.copyfile(os.path.join(RES, "_kit.py"), tmp_path / "_kit.py")
     script.write_text(body, encoding="utf-8")
     rc = subprocess.call([sys.executable, str(script), str(csv),
-                          str(tmp_path / "o.png")])
+                          str(tmp_path / "o.png")], env=_ENV)
     assert rc != 0                          # 拒绝彩虹色谱

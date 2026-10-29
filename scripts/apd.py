@@ -306,7 +306,8 @@ def cmd_demo(args):
         argv = [sys.executable, script, data, target]
         if name in widths:
             argv.append(widths[name])
-        rc = subprocess.call(argv)
+        env = dict(os.environ, PYTHONUTF8="1", PYTHONIOENCODING="utf-8")
+        rc = subprocess.call(argv, env=env)
         if rc != 0:
             print("  出图失败（%s）；仓库自带示例图片可直接使用。" % script_name)
 

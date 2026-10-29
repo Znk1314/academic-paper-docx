@@ -99,6 +99,14 @@ def cmd_new(args):
     return 0
 
 
+def _child_env():
+    """子进程统一 UTF-8：Windows 默认 cp1252 时中文打印会抛 UnicodeEncodeError。"""
+    env = dict(os.environ)
+    env["PYTHONUTF8"] = "1"
+    env["PYTHONIOENCODING"] = "utf-8"
+    return env
+
+
 def cmd_run(args):
     script = os.path.abspath(args.script)
     if not os.path.exists(script):
@@ -108,7 +116,7 @@ def cmd_run(args):
             os.path.abspath(args.output)]
     if args.width_mm:
         argv.append(str(args.width_mm))
-    return subprocess.call(argv)
+    return subprocess.call(argv, env=_child_env())
 
 
 def cmd_check(args):

@@ -172,6 +172,15 @@ def require(cond, message):
         raise SystemExit("数据契约不满足：%s" % message)
 
 
+def say(message):
+    """打印中文时不要让 cp1252 控制台把脚本打挂（Windows CI / 老终端）。"""
+    try:
+        print(message)
+    except UnicodeEncodeError:                       # pragma: no cover
+        data = (str(message) + "\n").encode("utf-8", "replace")
+        getattr(sys.stdout, "buffer", sys.stdout).write(data)
+
+
 def main_guard():
     if len(sys.argv) < 3:
         raise SystemExit("用法：python %s <data.csv> <out.png> [width_mm]"
