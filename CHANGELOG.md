@@ -16,6 +16,18 @@
 
 ### Changed
 
+- **出图逻辑整体替换为「配方 + 源码适配」**，删除原通用渲染器：
+  - 移除 `scripts/figures.py`、`scripts/make_chart.py`、`examples/demo/charts/*.json`、
+    `tests/test_figures.py`，以及 `apd figure` / `apd chart` 子命令
+  - 新增 `recipes/`：6 个配方（`line-multiseries`、`bar-single`、`bar-grouped`、
+    `scatter-fit`、`boxgroup`、`heatmap-seq`），每个含完整 `recipe.py`、`meta.json`
+    （适用/数据契约/保真要点/自查）与 `preview.png`
+  - 新增 `scripts/recipes.py` 与 `apd recipe {list,info,new,run,check}`：
+    拷出完整源码到工作区 → 在真实脚本上适配 → 跑图 → 核对数据契约与设计块改动
+  - `recipes/_kit.py`：字体、Okabe-Ito 色板、`量符号/单位`轴标目、PNG 元数据保存
+  - 交付物变为 **PNG/PDF + 可复现源码**；PNG 仍写 `width_mm/font_pt` 元数据，
+    docx 端继续核算"插入后图内文字 ≥6 pt"
+  - 文档：新增 `references/recipes.md`；SKILL §11.1 与 README 出图节整体重写
 - **文风检测改为完整采用 [academic-humanizer](https://github.com/AIScientists-Dev/academic-humanizer)
   （MIT）的逻辑**，删除本仓自研的一切去 AI 味规则：
   - 移除：S/A/B「AI 味」12 类规则、R「语体」6 条、D「防御性写作」6 条、三轴框架

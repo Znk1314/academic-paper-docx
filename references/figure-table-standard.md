@@ -114,7 +114,7 @@
 
 ### 1.1 "有效字号"怎么算（本 skill 的算法）
 
-插图在 Word 里常被缩放，一缩字号就变小。所以 `figures.py` 会把**设计宽度与基准字号**写进 PNG 元数据：
+插图在 Word 里常被缩放，一缩字号就变小。所以 出图配方 会把**设计宽度与基准字号**写进 PNG 元数据：
 
 ```
 Software: academic-paper-docx width_mm=155.0 font_pt=8.5 style=cn

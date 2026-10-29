@@ -1,0 +1,33 @@
+{
+  "id": "boxgroup",
+  "title": "分组箱线（含离群点）",
+  "channel": "data",
+  "language": "zh",
+  "when": "组间分布、离散程度与异常值比较。",
+  "data_contract": {
+    "file": "CSV，UTF-8",
+    "required_columns": [
+      "group",
+      "value"
+    ],
+    "optional_columns": [],
+    "min_rows": 6,
+    "notes": "数据必须来自真实输入；缺层按统计含义移除，不补造。"
+  },
+  "fidelity": [
+    "颜色 + 标记/线型双重编码（色盲与黑白打印）",
+    "轴标目为“量符号/单位”，符号斜体、单位正体（GB/T 7713.2 5.4.4）",
+    "字号与线宽按插入宽度设计，插入后不缩放",
+    "调整优先改位置、间距、尺寸，不整段重写绘图主体"
+  ],
+  "verify": [
+    "打开输出图看整体：图例不压数据、标签不被裁切",
+    "核对统计口径（误差线含义、样本量、单位）",
+    "确认插入宽度下字 ≥6 pt（docx 端会再核算）"
+  ],
+  "outputs": [
+    "png",
+    "pdf"
+  ],
+  "preview": "preview.png"
+}

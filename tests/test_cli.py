@@ -29,14 +29,13 @@ def test_build_and_qa(tmp_path):
     assert apd.main(["qa", str(out)]) == 0
 
 
-def test_chart_subcommand(tmp_path):
-    spec = tmp_path / "c.json"
-    spec.write_text('{"type":"bar","categories":["a"],'
-                    '"series":[{"name":"s","values":[1]}]}', encoding="utf-8")
-    out = tmp_path / "c.png"
-    assert apd.main(["chart", str(spec), "-o", str(out)]) == 0
-    assert out.exists()
-
+def test_recipe_subcommand(tmp_path, capsys):
+    """出图入口已从 chart 改为 recipe（配方 + 源码适配）。"""
+    import apd
+    code = apd.main(["recipe", "list"])
+    assert code == 0
+    out = capsys.readouterr().out
+    assert "line-multiseries" in out and "配方目录" in out
 
 def test_post_missing_file_returns_2(tmp_path):
     assert apd.main(["post", str(tmp_path / "nope.docx")]) == 2

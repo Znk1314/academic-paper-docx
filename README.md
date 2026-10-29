@@ -373,12 +373,10 @@ academic-paper-docx/
 │   ├── apd.py                统一 CLI：doctor / build / post / qa / preview / figure / tone / demo
 │   ├── docx_builder.py       格式库 + PaperBuilder API（SPEC 在文件顶部）
 │   ├── palette.py            唯一配色源（Okabe-Ito / Tol / Viridis 家族）
-│   ├── figures.py            插图渲染（毫米版面 / 1000 dpi / 矢量 / 灰度自检）
 │   ├── omml_latex.py         LaTeX 子集 → OMML（零外部依赖）
 │   ├── ai_tone_check.py      「AI 味」启发式检测（只报警，不改稿）
 │   ├── build_docx.py         内容模型 JSON → docx
 │   ├── qa_check.py           47 项规范质检（含配色/精度/分辨率/文风）
-│   ├── make_chart.py         旧名兼容入口（内部走 figures.py）
 │   ├── render_preview.py     PDF → 逐页 PNG + 空白页/书签体检
 │   ├── postprocess.ps1       Word COM：更新域/目录 + PDF + 固定 print 视图
 │   ├── postprocess.sh        LibreOffice 兜底
@@ -401,25 +399,27 @@ academic-paper-docx/
 
 ## 图表与配色
 
-出图统一走 `scripts/figures.py`（matplotlib 后端），配色统一读 `scripts/palette.py`：
+出图采用**配方 + 源码适配**：每个图型是一份完整、可独立运行的 matplotlib 脚本，
+拷到工作区后在真实文件上改数据与标签，交付 **PNG/PDF + 可复现源码**。
 
 ```bash
-python scripts/apd.py figure work/fig1.json -o work/figs/fig1.png --grayscale
+python scripts/apd.py recipe list                      # 6 个配方：折线/柱状/分组柱/散点/箱线/热图
+python scripts/apd.py recipe info line-multiseries     # 数据契约 + 保真要点
+python scripts/apd.py recipe new line-multiseries --out work/figs
+python scripts/apd.py recipe run work/figs/gen_fig_line_multiseries.py \
+       work/data/power.csv work/figs/fig2.png 140
+python scripts/apd.py recipe check work/figs/gen_fig_line_multiseries.py --data work/data/power.csv
 ```
 
-- **毫米版面**：`width_mm: "half"` = 75 mm、`"full"` = **155 mm**（= 版心宽），按插入后不缩放设计字号线宽；图宽超版心直接报错。
+- **毫米版面**：`width_mm` 取 75（半栏）/ 155（通栏），按插入后不缩放设计字号线宽。
 - **坐标轴**：`量符号/单位`，符号斜体、单位正体；只留左/下轴线；柱图零基线。
-- **色板**：默认 Okabe-Ito 8 色（色盲安全）；`jet`/`rainbow` 直接报错；顺序/发散自动选板。
-  另有 **9 套主题色卡**（`rose6` / `spectral8` / `minimal6` / `map7` / `medical6` /
-  `ocean8` / `material6` / `bluepink10` / `medical2_6`），`--palette` 指定后自动取
-  "安全子集"并打印红绿色盲距离与灰度差；色卡也可直接当热图色图用。
-  `python scripts/apd.py palette` 查看判定。
-- **冗余编码**：每个系列自动配"颜色 + 线型 + 标记"，黑白打印与色觉障碍都能读。
-- **分辨率**：线条图默认 1000 dpi，可同时输出 PDF 矢量；`--grayscale` 出灰度版自检。
-- **表格**：`columns` 列元信息自动生成"量/单位"表头、按列精度、右对齐、空缺 `—`、`^{a}` 上标。
+- **配色**：Okabe-Ito（配方 `_kit.py` 内置）；`jet/rainbow` 在热图配方里直接拒绝。
+- **冗余编码**：颜色 + 线型 + 标记三重区分，黑白打印与色觉障碍都能读。
+- **分辨率**：默认 1000 dpi PNG + PDF 矢量；PNG 自带 `width_mm/font_pt` 元数据，
+  docx 端据此核算"插入后图内文字还剩几 pt"。
 
 规范与自查清单：[references/figure-table-standard.md](references/figure-table-standard.md)、
-[references/palette.md](references/palette.md)。
+[references/palette.md](references/palette.md)、[references/recipes.md](references/recipes.md)。
 
 ## 内容模型
 
@@ -575,7 +575,7 @@ CI：Windows / Linux / macOS × Python 3.9 / 3.12，跑 lint + 单测 + 端到�
 
 - **文档真实性靠人**：脚本不会替你判断数据是否虚构，只用 `[待补充/待核实]` 与"模拟数据"标注来提醒。
 - **Word 是最终裁判**：LibreOffice 对 OMML 与域的支持不完整，交付前建议用 Word 打开核对。
-- **换配色改一处**：图与文档都读 `scripts/palette.py`；改色板后重跑 `figures.py` 出图即可。
+- **换配色改一处**：文档读 `scripts/palette.py`，图读 `recipes/_kit.py` 的色板常量，两处都改即可。
 - **不自动生成论文内容**：这是排版工具，内容仍然要你（或你的 agent）写。
 - 质检里颜色/字号断言写死默认调色板，换肤后必须带 `--spec`。
 

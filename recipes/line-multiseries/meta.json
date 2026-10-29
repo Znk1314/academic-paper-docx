@@ -1,0 +1,27 @@
+{
+  "id": "line-multiseries",
+  "title": "多系列折线（SD 误差线 + 显著性）",
+  "channel": "data",
+  "language": "zh",
+  "when": "比较 2—4 个方法/条件的同一指标随连续变量的变化；有重复实验可给 SD/SE。",
+  "data_contract": {
+    "file": "CSV，UTF-8",
+    "required_columns": ["x", "<系列名 1..n>"],
+    "optional_columns": ["err_<系列名>"],
+    "min_rows": 2,
+    "notes": "x 为数值；误差线含义（SD/SEM/95%CI）必须写进图注，不能只写“误差线”。"
+  },
+  "fidelity": [
+    "保留颜色 + 线型 + 标记三重编码（色盲与黑白打印）",
+    "保留“量符号/单位”轴标目：符号斜体、单位正体",
+    "保留误差线 cap 与等长上下限",
+    "新增系列时循环取色，不手工指定颜色"
+  ],
+  "verify": [
+    "打开输出图，确认图例不压数据、误差线不被裁切",
+    "确认 x 轴范围与刻度间隔可读（2/5 倍数）",
+    "确认插入宽度下字不小于 6 pt（docx 端会再算一次）"
+  ],
+  "outputs": ["png", "pdf"],
+  "preview": "preview.png"
+}

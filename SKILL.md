@@ -238,7 +238,7 @@ b.doc.save("report.docx")
 | 图表数量与编号（由脚本自动连续） | 目录域、页眉页脚、OMML 公式、页面视图 |
 
 换配色时务必**整组替换**（深色/强调/辅助/浅底），不要只改标题颜色——图表 PNG 也要一起重做
-（`scripts/make_chart.py` 读同一套色板）。
+（`recipes/_kit.py` 内置同一套色板常量）。
 
 ## 9. 常见故障
 
@@ -267,10 +267,8 @@ academic-paper-docx/
 │   ├── build_docx.py           内容模型 JSON → docx（主入口）
 │   ├── docx_builder.py         格式库 / Python API（SPEC 在文件顶部）
 │   ├── palette.py              唯一配色源（Okabe-Ito / Tol / Viridis 家族）
-│   ├── figures.py              插图渲染（毫米版面 / 1000 dpi / 矢量 / 灰度自检）
 │   ├── omml_latex.py           LaTeX 子集 → OMML
 │   ├── ai_tone_check.py        「AI 味」启发式检测（只报警，不改稿）
-│   ├── make_chart.py           规范配色图表 PNG
 │   ├── postprocess.ps1         Word COM：更新域/目录 + PDF + 固定视图
 │   ├── postprocess.sh          LibreOffice 兜底
 │   ├── set_view.py             只改 settings.xml 强制 print 视图
@@ -335,42 +333,28 @@ python <SKILL_DIR>/scripts/apd.py qa    work/paper.docx --profile csae
 
 **不要自己配颜色、自己调像素**，按下面的流程走：
 
-### 11.1 出图
+### 11.1 出图：配方 + 源码适配
+
+**没有通用渲染器**。每张图 = 一份完整 matplotlib 脚本（配方），拷到工作区后在真实文件上适配：
 
 ```bash
-python <SKILL_DIR>/scripts/figures.py work/fig1.json -o work/figs/fig1.png --grayscale
+python <SKILL_DIR>/scripts/apd.py recipe list                     # 选配方
+python <SKILL_DIR>/scripts/apd.py recipe info line-multiseries    # 看数据契约与保真要点
+python <SKILL_DIR>/scripts/apd.py recipe new line-multiseries --out work/figs
+python <SKILL_DIR>/scripts/apd.py recipe run work/figs/gen_fig_line_multiseries.py \
+       work/data/power.csv work/figs/fig2.png 140
+python <SKILL_DIR>/scripts/apd.py recipe check work/figs/gen_fig_line_multiseries.py \
+       --data work/data/power.csv
 ```
 
-图的 JSON 关键字段：
+- 配方目录在 `<SKILL_DIR>/recipes/<id>/`（`recipe.py` + `meta.json` + `preview.png`）
+- 适配守则与配方清单见 `references/recipes.md`
+- 交付 **PNG/PDF + 可复现脚本**；PNG 自带 `width_mm/font_pt` 元数据供 docx 核算字号
 
-```jsonc
-{
-  "kind": "line|bar|grouped_bar|scatter|errorbar|box|heatmap",
-  "xlabel": {"label": "采样周期", "symbol": "t", "unit": "s"},
-  "ylabel": {"label": "平均功耗", "symbol": "P", "unit": "mW"},
-  "width_mm": "half | full | 120",      // 半栏 75 / 通栏 155（= 版心宽）
-  "style": "cn | nature | ieee",
-  "dpi": 1000, "formats": ["png", "pdf"],
-  "series": [{"name": "本文", "values": [15.9, 10.4], "error": [0.5, 0.4]}],
-  "brackets": [{"x1": 0, "x2": 1, "label": "**"}],   // 显著性
-  "cmap": "viridis"                     // 热图；jet/rainbow 会直接报错
-}
-```
-
-配色可选"主题色卡"（9 套设计稿配色，自动取安全子集并打印实测判据）：
-
-```bash
-python <SKILL_DIR>/scripts/apd.py palette            # 列出全部色卡与 3/4/5 类判定
-python <SKILL_DIR>/scripts/figures.py spec.json -o f.png --palette rose6
-```
-
-> 色卡是"整体协调"的设计稿，不等于"N 类分类色板"。同色系深浅当分类色会糊，
-> 本 skill 会用 `safe_subset()` 自动挑可区分的子集，并给出 CVD/灰度实测值。
-
-出图时的硬约束（违反会报错，不是建议）：
-- 颜色只能取自 `palette.SERIES`（Okabe-Ito）；红绿色盲下同色的组合直接拒绝。
-- 定量数据禁用 `jet`/`rainbow`。
-- 每个系列自动配"颜色 + 线型 + 标记"三重编码，黑白打印与色觉障碍都能读。
+出图硬约束（不符合会被 `qa` 拦）：
+- 颜色只能取自 Okabe-Ito（配方 `_kit.py` 已内置），且必须叠加线型/标记
+- 定量数据禁用 jet/rainbow
+- 半栏 75 mm / 通栏 155 mm；插入后图内文字 ≥6 pt
 
 ### 11.2 配表
 
@@ -400,14 +384,14 @@ python <SKILL_DIR>/scripts/figures.py spec.json -o f.png --palette rose6
 
 | 约束 | 取值 | 越界后果 |
 |---|---|---|
-| 图宽 | 半栏 75 mm / 通栏 **≤155 mm**（= 版心 16.0 cm 减余量） | `figures.py` 直接报错 |
+| 图宽 | 半栏 75 mm / 通栏 **≤155 mm**（= 版心 16.0 cm 减余量） | 配方按 `width_mm` 出图，超出即报错 |
 | 图高 | **≤22 cm** | 生成时警告（图+题+注会跨页） |
 | 图内文字插入后 | **≥6 pt** | 生成时警告，并指出原设计字号与缩放比 |
 | 图题/表题 | `图N` + **1 个全角空格** + 题名，居中 | 自动 |
 | 图注/表注 | 置于图下/表下，末尾自动补"。" | 自动 |
 | 先文后图/表 | 正文提及在前（5.4.5 / 5.5.5） | `apd qa` 检查 |
 
-出图时按**最终插入尺寸**设计：半栏图就写 `"width_mm": "half"`。
+出图时按**最终插入尺寸**设计：`recipe run ... 75`（半栏）或 `155`（通栏）。
 拿通栏图缩到半栏，155 mm 的 8.5 pt 会变成 4.1 pt——这正是 5.4.1 要避免的。
 具体算法与实测表见 `references/figure-table-standard.md` §1.1。
 

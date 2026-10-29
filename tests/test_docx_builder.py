@@ -398,18 +398,17 @@ def test_figure_width_clamped_to_text_block(built):
 
 
 def test_figure_font_shrinks_when_inserted_narrow(built, tmp_path):
-    """155 mm 设计的图插入半栏 → 有效字号低于 6 pt 应告警。"""
-    import figures
-    spec = {"kind": "line", "width_mm": 155, "dpi": 300,
-            "series": [{"name": "A", "values": [1, 2, 3]}], "y_range": [0, 4]}
-    png = str(tmp_path / "wide.png")
-    figures.render(spec, png)
+    """155 mm 设计、8.5 pt 的图插入半栏 → 有效字号低于 6 pt 应告警。"""
+    from PIL import Image
+    from PIL.PngImagePlugin import PngInfo
+
+    png = tmp_path / "wide.png"
+    info = PngInfo()
+    info.add_text("Software", "academic-paper-docx width_mm=155.0 font_pt=8.5 style=cn")
+    Image.new("RGB", (1550, 1000), "white").save(png, pnginfo=info, dpi=(200, 200))
     b = built[0]
-    b.add_figure(png, caption="缩太小", width_cm=7.5)
+    b.add_figure(str(png), caption="缩太小", width_cm=7.5)
     assert any("pt" in w and "低于" in w for w in b.warnings)
-
-
-# ---------------------------------------------------------------- 前置部分顺序
 
 def _front_titles(doc):
     out = []

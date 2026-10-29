@@ -103,19 +103,11 @@ def cmd_palette(args):
     return 0
 
 
-def cmd_figure(args):
-    try:
-        import figures
-    except ImportError as exc:
-        print(str(exc), file=sys.stderr)
-        print("提示：只排文字不需要出图，可直接用 apd build 生成 docx。", file=sys.stderr)
-        return 2
-    argv = [args.spec, "-o", args.output]
-    if args.grayscale:
-        argv.append("--grayscale")
-    if getattr(args, "palette", None):
-        argv += ["--palette", args.palette]
-    return figures.main(argv)
+def cmd_recipe(args):
+    """转发到 scripts/recipes.py（配方目录 + 拷源码 + 跑图 + 核对）。"""
+    import recipes
+
+    return recipes.main([a for a in args.recipe_args if a != "--"])
 
 
 def cmd_tone(args):
@@ -380,14 +372,9 @@ def build_parser():
     p.add_argument("name", nargs="?", help="色卡名（省略则全部）")
     p.set_defaults(func=cmd_palette)
 
-    for name, text in (("figure", "按国标/期刊惯例渲染插图（毫米版面 + 色板校验）"),
-                       ("chart", "旧名，等价于 figure")):
-        p = sub.add_parser(name, help=text)
-        p.add_argument("spec")
-        p.add_argument("-o", "--output", required=True)
-        p.add_argument("--grayscale", action="store_true", help="同时输出灰度版自检")
-        p.add_argument("--palette", help="主题色卡（rose6/spectral8/... 或用 apd palette 查看）")
-        p.set_defaults(func=cmd_figure)
+    p = sub.add_parser("recipe", help="配方出图：列配方 / 拷源码 / 跑图 / 核对")
+    p.add_argument("recipe_args", nargs=argparse.REMAINDER)
+    p.set_defaults(func=cmd_recipe)
 
     p = sub.add_parser("tone", help="学术文风审计（academic-humanizer 逻辑，只报警）")
     src = p.add_mutually_exclusive_group(required=True)

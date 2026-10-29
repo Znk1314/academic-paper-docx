@@ -58,7 +58,7 @@ palette.resolve_cmap("jet")   # ValueError: 禁止使用 'jet'
 - 自检命令：
 
 ```bash
-python scripts/figures.py spec.json -o fig.png --grayscale   # 同时输出灰度版
+python scripts/apd.py recipe new <id> --out work/figs   # 拷出配方源码后改 _kit 色板常量
 ```
 
 ## 5. 颜色数量的克制
