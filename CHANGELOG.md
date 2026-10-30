@@ -32,6 +32,21 @@
 
 ### Added
 
+- **新增 5 个统计图型配方**（按 scipilot-figure-skill 的 MIT 规则实现）：
+  - `scatter-signif-group` 分组散点 + 显著性桥：每个点都露出、均值 ±SE、
+    显著性桥按数据给出的组对与标记绘制
+  - `corr-lower` 相关性矩阵：只画下三角、对角 1.00、RdBu_r 以 0 为中心、系数写字、
+    |r|≥0.7 加粗；支持 Pearson / Spearman
+  - `roc-pr-curve` ROC / PR 曲线：ROC 画随机基线、图例标 AUC，PR 标 AP，
+    点 ≤8 时加标记；kind 列可只给一种曲线
+  - `survival-km` Kaplan-Meier：阶梯曲线、删失短竖线、图例给各组 n
+  - `dual-split` 双变量拆图：两子图共享 x，**替代双 Y 轴**（a/b 面板标签）
+- `scripts/compose_previews.py --figures`：把配方预览拼成"两图一行"，README 新增
+  「图型库：14 个配方」一节（3 张拼版图）
+- 测试：13 个配方全部纳入目录与跑图用例，另加 KM 单调性、Pearson ±1 两条数学断言
+
+### Changed
+
 - **自动排版：正文页不留大片留白**（`scripts/layout_fit.py`，构建时默认开启，`--no-auto-layout` 关闭）
   - 逐页量"内容底部到版心底部"的空白（PyMuPDF，排除页脚区）
   - 空白 >5 cm 且非末页、也非前置部分（封面/摘要/Abstract/目录，按标题与目录特征识别）

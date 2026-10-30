@@ -42,6 +42,17 @@ PAIRS = [
 ]
 
 
+# 图型库：两图一行（同一行放两个配方预览）
+RECIPE_PAIRS = [
+    ("g1-signif-corr", "scatter-signif-group", "corr-lower",
+     "分组散点 + 显著性桥 ｜ 相关性矩阵（下三角 + 系数）"),
+    ("g2-roc-surv", "roc-pr-curve", "survival-km",
+     "ROC / PR 曲线（AUC） ｜ Kaplan-Meier 生存曲线"),
+    ("g3-dual-heat", "dual-split", "heatmap-seq",
+     "双变量拆图（替代双 Y 轴） ｜ 顺序色板热图"),
+]
+
+
 def _load(folder, page):
     path = os.path.join(folder, "page-%02d.png" % page)
     if not os.path.exists(path):
@@ -67,9 +78,43 @@ def compose(left_path, right_path, out_path):
     return canvas.size
 
 
+def _load_recipe(rid):
+    path = os.path.join(REPO, "recipes", rid, "preview.png")
+    if not os.path.exists(path):
+        raise SystemExit("缺配方预览：%s（先跑该配方的 recipe.py）" % path)
+    return Image.open(path).convert("RGB")
+
+
+def _fit_h(img, height):
+    w, h = img.size
+    return img.resize((int(w * height / h), height), Image.LANCZOS)
+
+
+def compose_figures(height=430):
+    """把两个配方的预览上下拼成一行（各自缩到等高）。"""
+    made = []
+    for name, left_rid, right_rid, caption in RECIPE_PAIRS:
+        left = _fit_h(_load_recipe(left_rid), height)
+        right = _fit_h(_load_recipe(right_rid), height)
+        canvas = Image.new("RGB",
+                           (left.size[0] + right.size[0] + GAP + 2, height + 2),
+                           "white")
+        canvas.paste(left, (1, 1))
+        canvas.paste(right, (left.size[0] + GAP + 1, 1))
+        ImageDraw.Draw(canvas).rectangle(
+            [0, 0, canvas.size[0] - 1, canvas.size[1] - 1], outline=BORDER)
+        out = os.path.join(OUT, name + ".png")
+        canvas.save(out, "PNG", optimize=True)
+        made.append(name)
+        print("  %-18s %sx%s  %s" % (name, canvas.size[0], canvas.size[1], caption))
+    return made
+
+
 def main(argv=None):
     ap = argparse.ArgumentParser(description="拼两页一行的预览图")
     ap.add_argument("--out", default=OUT)
+    ap.add_argument("--figures", action="store_true",
+                    help="同时拼图型库的两图一行图（需要各配方 preview.png）")
     ap.add_argument("--keep", action="store_true",
                     help="保留输出目录里不在本次清单中的旧图（默认不删，只覆盖）")
     args = ap.parse_args(argv)
@@ -81,6 +126,9 @@ def main(argv=None):
         made.append(name)
         print("  %-20s %sx%s  %s" % (name, size[0], size[1], caption))
     print("共 %d 张（每张两页）→ %s" % (len(made), args.out))
+    if args.figures:
+        prints = compose_figures()
+        print("图型库 %d 张（每张两个配方）→ %s" % (len(prints), args.out))
     return 0
 
 

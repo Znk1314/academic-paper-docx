@@ -1,0 +1,40 @@
+{
+  "id": "survival-km",
+  "title": "Kaplan-Meier 生存曲线",
+  "channel": "data",
+  "language": "zh",
+  "journal": "nature",
+  "style": "cn",
+  "final_size": "140 mm",
+  "when": "到事件时间数据（随访、失效、留存）；需要删失信息。",
+  "data_contract": {
+    "file": "CSV，UTF-8",
+    "required_columns": [
+      "time",
+      "event"
+    ],
+    "optional_columns": [
+      "group"
+    ],
+    "min_rows": 10,
+    "notes": "数值来自真实输入；显著性与检验方法由作者提供，配方不猜。"
+  },
+  "fidelity": [
+    "阶梯曲线（where=post）与删失短竖线",
+    "图例给各组 n；曲线不超出样本最大时间",
+    "图注写随访起止、删失原因与 log-rank 检验",
+    "按最终尺寸出图，插入后不再缩放；字号 ≥6 pt",
+    "轴标目为“量符号/单位”，符号斜体、单位正体"
+  ],
+  "verify": [
+    "打开输出图：点/线不重叠、标签不被裁切、图例不压数据",
+    "核对统计口径：n、误差含义、检验方法与校正",
+    "确认插入宽度下字 ≥6 pt（docx 端会再核算）"
+  ],
+  "outputs": [
+    "png",
+    "pdf",
+    "svg"
+  ],
+  "preview": "preview.png"
+}

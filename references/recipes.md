@@ -45,6 +45,11 @@ python scripts/apd.py recipe check work/figs/gen_fig_line_multiseries.py --data 
 | `heatmap-seq` | 顺序色板热图（cividis） | `row,<列...>` |
 | `nature-multipanel` | Nature 双栏四面板 + a/b/c/d | `panel,group,x,y` |
 | `nature-dotplot` | 小组样本点图（替代均值柱） | `group,value`（每组 3—12 点） |
+| `scatter-signif-group` | 分组散点 + 显著性桥 | `group,value[,pair,label]` |
+| `corr-lower` | 相关性矩阵（下三角 + 系数） | 宽表，首列标签 |
+| `roc-pr-curve` | ROC / PR 曲线（AUC / AP） | `model,kind,x,y` |
+| `survival-km` | Kaplan-Meier 生存曲线 | `time,event[,group]` |
+| `dual-split` | 双变量拆图（替代双 Y 轴） | `x,left,right` |
 
 每个配方目录下有 `recipe.py`（完整源码）、`meta.json`（适用/契约/保真/自查）、`preview.png`（预览）。
 

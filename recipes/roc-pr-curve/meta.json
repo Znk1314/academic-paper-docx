@@ -1,0 +1,40 @@
+{
+  "id": "roc-pr-curve",
+  "title": "ROC / PR 曲线（含 AUC）",
+  "channel": "data",
+  "language": "zh",
+  "journal": "nature",
+  "style": "cn",
+  "final_size": "140 mm",
+  "when": "二分类器性能对比；正负样本不均衡时同时给 PR。",
+  "data_contract": {
+    "file": "CSV，UTF-8",
+    "required_columns": [
+      "model",
+      "kind",
+      "x",
+      "y"
+    ],
+    "optional_columns": [],
+    "min_rows": 8,
+    "notes": "数值来自真实输入；显著性与检验方法由作者提供，配方不猜。"
+  },
+  "fidelity": [
+    "ROC 画对角随机基线，PR 画阳性率基线",
+    "图例标 AUC（3 位小数），梯形积分",
+    "点 ≤8 时加标记，避免假平滑；图注写阈值与样本量",
+    "按最终尺寸出图，插入后不再缩放；字号 ≥6 pt",
+    "轴标目为“量符号/单位”，符号斜体、单位正体"
+  ],
+  "verify": [
+    "打开输出图：点/线不重叠、标签不被裁切、图例不压数据",
+    "核对统计口径：n、误差含义、检验方法与校正",
+    "确认插入宽度下字 ≥6 pt（docx 端会再核算）"
+  ],
+  "outputs": [
+    "png",
+    "pdf",
+    "svg"
+  ],
+  "preview": "preview.png"
+}

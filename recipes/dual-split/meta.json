@@ -1,0 +1,39 @@
+{
+  "id": "dual-split",
+  "title": "双变量拆图（替代双 Y 轴）",
+  "channel": "data",
+  "language": "zh",
+  "journal": "nature",
+  "style": "cn",
+  "final_size": "140 mm",
+  "when": "两个量纲不同的量随同一自变量变化；双 Y 轴会造成虚假相关。",
+  "data_contract": {
+    "file": "CSV，UTF-8",
+    "required_columns": [
+      "x",
+      "left",
+      "right"
+    ],
+    "optional_columns": [],
+    "min_rows": 4,
+    "notes": "数值来自真实输入；显著性与检验方法由作者提供，配方不猜。"
+  },
+  "fidelity": [
+    "上下两子图共享 x，各自独立 y 轴与标目",
+    "面板标签 a/b 用 title loc=left，不加图例",
+    "绝不使用 twinx（check 会提示）",
+    "按最终尺寸出图，插入后不再缩放；字号 ≥6 pt",
+    "轴标目为“量符号/单位”，符号斜体、单位正体"
+  ],
+  "verify": [
+    "打开输出图：点/线不重叠、标签不被裁切、图例不压数据",
+    "核对统计口径：n、误差含义、检验方法与校正",
+    "确认插入宽度下字 ≥6 pt（docx 端会再核算）"
+  ],
+  "outputs": [
+    "png",
+    "pdf",
+    "svg"
+  ],
+  "preview": "preview.png"
+}

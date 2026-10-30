@@ -1,0 +1,41 @@
+{
+  "id": "scatter-signif-group",
+  "title": "分组散点 + 显著性桥",
+  "channel": "data",
+  "language": "zh",
+  "journal": "nature",
+  "style": "cn",
+  "final_size": "140 mm（可改 89/183）",
+  "when": "每组 5—15 个观测的组间比较；必须露出每个点，同时标注显著性。",
+  "data_contract": {
+    "file": "CSV，UTF-8",
+    "required_columns": [
+      "group",
+      "value"
+    ],
+    "optional_columns": [
+      "pair",
+      "label"
+    ],
+    "min_rows": 10,
+    "notes": "数值来自真实输入；显著性与检验方法由作者提供，配方不猜。"
+  },
+  "fidelity": [
+    "每个观测点抖动画出，叠加均值横线与 ±SE 误差棒",
+    "显著性桥只画数据里给出的组对，标记与图注检验方法一致",
+    "禁止用均值柱替代（n<10 时会掩盖分布）",
+    "按最终尺寸出图，插入后不再缩放；字号 ≥6 pt",
+    "轴标目为“量符号/单位”，符号斜体、单位正体"
+  ],
+  "verify": [
+    "打开输出图：点/线不重叠、标签不被裁切、图例不压数据",
+    "核对统计口径：n、误差含义、检验方法与校正",
+    "确认插入宽度下字 ≥6 pt（docx 端会再核算）"
+  ],
+  "outputs": [
+    "png",
+    "pdf",
+    "svg"
+  ],
+  "preview": "preview.png"
+}

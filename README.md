@@ -425,6 +425,36 @@ academic-paper-docx/
 └── .github/                  CI / Release / Pages / Issue 模板
 ```
 
+## 图型库：14 个配方
+
+每个图型都是**一份完整可运行脚本**，拷到工作区改数据即可；预览图由
+`scripts/compose_previews.py --figures` 从配方实际输出拼成（每行两张）。
+
+<p align="center"><img src="docs/screenshots/g1-signif-corr.png" alt="分组散点与相关性矩阵" width="100%"></p>
+
+<p align="center"><em>左：分组散点 + 显著性桥（每个点都露出，均值 ±SE）·
+右：相关性矩阵（下三角、系数、RdBu_r 以 0 为中心）</em></p>
+
+<p align="center"><img src="docs/screenshots/g2-roc-surv.png" alt="ROC/PR 与生存曲线" width="100%"></p>
+
+<p align="center"><em>左：ROC / PR 曲线（图例标 AUC / AP）·
+右：Kaplan-Meier 生存曲线（删失用短竖线，图例给 n）</em></p>
+
+<p align="center"><img src="docs/screenshots/g3-dual-heat.png" alt="双变量拆图与热图" width="100%"></p>
+
+<p align="center"><em>左：双变量拆图（两个子图共享 x，替代双 Y 轴）·
+右：顺序色板热图（cividis + 单元格数值）</em></p>
+
+新增的 5 个图型都按 scipilot-figure-skill（MIT）的规则实现：
+小样本必须露点、**不用双 Y 轴**（拆成共享 x 的上下两图）、显著性标记与检验方法一致、
+相关矩阵只画下三角、ROC 必标 AUC、生存曲线要给删失与 n。
+
+```bash
+apd recipe info scatter-signif-group     # 数据契约 + 保真要点
+apd recipe new corr-lower --out work/figs
+apd recipe run work/figs/gen_fig_corr_lower.py data.csv fig.png 140
+```
+
 ## 图表与配色
 
 出图采用**配方 + 源码适配**：每个图型是一份完整、可独立运行的 matplotlib 脚本，

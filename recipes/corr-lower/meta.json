@@ -1,0 +1,37 @@
+{
+  "id": "corr-lower",
+  "title": "相关性矩阵（下三角 + 系数）",
+  "channel": "data",
+  "language": "zh",
+  "journal": "nature",
+  "style": "cn",
+  "final_size": "140 mm",
+  "when": "3—8 个变量的相关结构；同一系数只出现一次。",
+  "data_contract": {
+    "file": "CSV，UTF-8",
+    "required_columns": [
+      "<变量列>"
+    ],
+    "optional_columns": [],
+    "min_rows": 5,
+    "notes": "数值来自真实输入；显著性与检验方法由作者提供，配方不猜。"
+  },
+  "fidelity": [
+    "只画下三角，对角 1.00，上三角留白",
+    "RdBu_r 以 0 为中心的发散色板，色条标 r",
+    "系数写字，|r|≥0.7 加粗；图注写相关方法与 n",
+    "按最终尺寸出图，插入后不再缩放；字号 ≥6 pt",
+    "轴标目为“量符号/单位”，符号斜体、单位正体"
+  ],
+  "verify": [
+    "打开输出图：点/线不重叠、标签不被裁切、图例不压数据",
+    "核对统计口径：n、误差含义、检验方法与校正",
+    "确认插入宽度下字 ≥6 pt（docx 端会再核算）"
+  ],
+  "outputs": [
+    "png",
+    "pdf",
+    "svg"
+  ],
+  "preview": "preview.png"
+}

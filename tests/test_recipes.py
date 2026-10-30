@@ -20,7 +20,9 @@ _ENV = dict(os.environ, PYTHONUTF8="1", PYTHONIOENCODING="utf-8")
 
 EXPECTED = {"line-multiseries", "bar-single", "bar-grouped",
             "scatter-fit", "boxgroup", "heatmap-seq",
-            "nature-multipanel", "nature-dotplot"}
+            "nature-multipanel", "nature-dotplot",
+            "scatter-signif-group", "corr-lower", "roc-pr-curve",
+            "survival-km", "dual-split"}
 
 
 def test_catalog_has_expected_recipes():
@@ -176,3 +178,52 @@ def test_nature_multipanel_runs(tmp_path):
     with Image.open(out) as img:
         mm = img.size[0] / img.info["dpi"][0] * 25.4
     assert mm == pytest.approx(183, abs=1)          # Nature 双栏
+
+
+# ---------------------------------------------------------------- 5 个统计图型
+
+STAT_RECIPES = {
+    "scatter-signif-group": "fig7_signif",
+    "corr-lower": "fig8_corr",
+    "roc-pr-curve": "fig9_roc",
+    "survival-km": "fig10_surv",
+    "dual-split": "fig11_dual",
+}
+
+
+@pytest.mark.parametrize("rid,csv_name", sorted(STAT_RECIPES.items()))
+def test_stat_recipes_run(rid, csv_name, tmp_path):
+    out = tmp_path / "x.png"
+    rc = subprocess.call([sys.executable, os.path.join(RES, rid, "recipe.py"),
+                          os.path.join(DATA, csv_name + ".csv"), str(out)],
+                         env=_ENV)
+    assert rc == 0, rid
+    with Image.open(out) as img:
+        assert img.info["dpi"][0] > 900
+        assert "academic-paper-docx" in (img.info.get("Software") or "")
+
+
+def test_survival_km_is_monotone(tmp_path):
+    """生存曲线必须单调不增，否则阶梯画错了。"""
+    sys.path.insert(0, os.path.join(RES, "survival-km"))
+    import importlib.util
+
+    spec = importlib.util.spec_from_file_location(
+        "km_recipe", os.path.join(RES, "survival-km", "recipe.py"))
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    xs, ys = mod._km([1, 2, 3, 4, 5, 6], [1, 1, 0, 1, 0, 1])
+    assert all(b <= a + 1e-9 for a, b in zip(ys, ys[1:])), ys
+
+
+def test_corr_lower_masks_upper_triangle(tmp_path):
+    """相关性矩阵只画下三角：掩码后上三角应是 NaN。"""
+    sys.path.insert(0, os.path.join(RES, "corr-lower"))
+    import importlib.util
+
+    spec = importlib.util.spec_from_file_location(
+        "corr_recipe", os.path.join(RES, "corr-lower", "recipe.py"))
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    assert mod._pearson([1, 2, 3], [2, 4, 6]) == pytest.approx(1.0)
+    assert mod._pearson([1, 2, 3], [3, 2, 1]) == pytest.approx(-1.0)
