@@ -7,7 +7,7 @@
 [![CI](https://github.com/Znk1314/academic-paper-docx/actions/workflows/ci.yml/badge.svg)](https://github.com/Znk1314/academic-paper-docx/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![Python](https://img.shields.io/badge/python-3.9%2B-blue.svg)](pyproject.toml)
-[![QA](https://img.shields.io/badge/QA-35%20checks-009E73.svg)](scripts/qa_check.py)
+[![QA](https://img.shields.io/badge/QA-57%20checks-009E73.svg)](scripts/qa_check.py)
 [![Agent](https://img.shields.io/badge/agent-DSH%20%7C%20Codex%20%7C%20Claude-1F3A5F.svg)](#安装)
 
 **它同时是一个 agent skill**：仓库根目录就是 skill 根目录（`SKILL.md` 在根上），
@@ -16,6 +16,13 @@
 [English](README.en.md) · [格式规范全文](references/format-spec.md) · [在线落地页](docs/index.html) · [示例 PDF](docs/demo/demo_report.pdf)
 
 ---
+
+> **一句话**：给学术写作 agent 用的 Word 生成 skill —— 版式、图表、配色、引文、文风、
+> 质检六件事都按国标与期刊惯例定死，输出可直接投稿/交稿的 `.docx`。
+
+**本文结构**：① 为什么需要它 → ② 成品预览（单栏/双栏）→ ③ 三种用法（怎么切版式）→
+④ 安装与快速开始 → ⑤ 出图（配方 + Nature 体例）→ ⑥ 文风（academic-humanizer）→
+⑦ 质检 → ⑧ 内容模型 / Python API → ⑨ 测试与已知限制。
 
 ## 为什么需要它
 
@@ -36,138 +43,54 @@
 
 ## 成品预览
 
-全部由 [`examples/demo/content_model.json`](examples/demo/content_model.json) 自动生成，**未做人工排版**：
+下面每一页都是 `examples/` 里的模型**一条命令生成**的，没有手工排版、没有后期调图。
+
+### 单栏 · 学位论文（`--profile thesis`）
+
+11 页 / 6 图 / 2 表 / 2 公式；封面、摘要、Abstract、目录各自另起页，正文连续排到底。
 
 | 封面 | 摘要 |
 |---|---|
 | ![封面](docs/screenshots/01-cover.png) | ![摘要](docs/screenshots/02-abstract.png) |
 
-| 三线表 + 多系列折线图（3 色 7 点 + 误差线 + 显著性） | 分组柱状图（3 系列 × 4 组） |
+正文页（三线表 + 多系列折线，自动排版后无大片留白）：
+
+![单栏正文页](docs/screenshots/09-thesis-figures.png)
+
+其余图型：分组柱状（3 系列 × 4 组）、散点（2 系列 × 12 点）、箱线（4 组 + 抖动点）、
+热图（cividis 顺序色板）：
+
+| 表格 + 折线 | 分组柱状 |
 |---|---|
 | ![表格与折线图](docs/screenshots/03-table-figure.png) | ![分组柱状](docs/screenshots/04-figures-compare.png) |
 
-| 散点图 + 箱线图（同一页两种图型） | 热图（cividis 顺序色板，色盲安全） |
+| 散点 + 箱线 | 热图 |
 |---|---|
 | ![散点与箱线](docs/screenshots/05-figures-mixed.png) | ![热图](docs/screenshots/06-heatmap.png) |
 
-另有《农业工程学报》期刊模板（`--profile csae`，双栏、黑体标题、楷体图题）：
+完整 11 页见 [docs/demo/demo_report.pdf](docs/demo/demo_report.pdf)。
 
-![期刊模板](docs/screenshots/08-journal-csae.png)
+### 双栏 · 期刊稿（`--profile csae`）
 
-完整 11 页、6 张图见 [docs/demo/demo_report.pdf](docs/demo/demo_report.pdf)：
-柱状（4 类，零基线）、折线（3 系列 × 7 点、SD 误差线、`*`/`**` 显著性）、
-分组柱状（3 系列 × 4 组）、散点（2 系列 × 12 点）、箱线（4 组）、热图（cividis 顺序色板）。
+3 页 / 4 图 / 2 表 / 1 公式；双栏 8.66 cm、黑体标题、楷体图题、图表题中英对照，
+图按期刊单栏 **86 mm** 出图（插入后字 ≥6 pt）。
 
-## 三种用法：怎么说、怎么切单栏/双栏
-
-这套 skill 有**两套版式**，切换成本只有一行命令或一句话：
-
-| 版式 | 样子 | 适用 | 参数 |
-|---|---|---|---|
-| **单栏（thesis）** | 封面 + 摘要 + Abstract + 目录 + 正文 12 pt，页脚"第 X 页" | 毕业设计、学位论文、课程报告、研究报告 | `--profile thesis` |
-| **双栏（csae）** | 《农业工程学报》版式：双栏 8.66 cm、黑体 18 pt 题名、正文 10 pt、页码在页眉 | 期刊投稿、学术论文 | `--profile csae` |
-
-### 用法一：直接用话告诉 AI（最省事，推荐）
-
-不用记参数，说清楚"给谁投"即可，agent 会按下面的规则选模板：
-
-> 用 academic-paper-docx 把这批数据写成一篇**期刊论文**，按**农业工程学报**格式排版，双栏。
-
-> 帮我做一份**本科毕业设计**（单栏），要有封面、目录、三线表。
-
-### 用法二：显式指定模板（最可控）
-
-```bash
-# 双栏期刊稿
-python scripts/apd.py build work/paper.json -o work/paper.docx --profile csae
-
-# 单栏学位论文 / 报告
-python scripts/apd.py build work/report.json -o work/report.docx --profile thesis
-```
-
-模型里也能写死，脚本与 agent 都认：
-
-```jsonc
-{ "profile": "csae" }
-```
-
-### 用法三：什么都不说（按任务类型自动判定）
-
-`build` 不给 `--profile` 时按下列优先级决定，并打印判定依据：
-
-```
-模板：csae（只写了"论文"，默认按期刊稿（双栏））
-```
-
-| 优先级 | 线索 | 结果 |
-|---|---|---|
-| 1 | 命令行 `--profile` | 用指定值 |
-| 2 | 模型里 `"profile": "csae" / "thesis"` | 用指定值 |
-| 3 | 模型带 `journal` 块（刊名/卷期/doi） | **双栏** |
-| 4 | `meta.doc_type` 含 毕业设计 / 学位论文 / 课程报告 / 研究报告 / 开题 / 结题 | **单栏** |
-| 5 | `meta.doc_type` 含 期刊 / 学报 / 投稿 / 学术论文 | **双栏** |
-| 6 | 只写了"论文" | **双栏**（按期刊稿） |
-| 7 | 其它（报告、说明、方案…） | **单栏** |
-
-> 为什么"毕业设计（论文）"要排在"论文"前面？因为中文里它同时含"论文"二字，
-> 若先匹配"论文"就会把毕业设计误判成双栏期刊稿。这一条已有单测守着。
-
-### 质检不用再指定
-
-`apd qa` 省略 `--profile` 时会**看文档本身**：正文是双栏就按期刊模板检查（23 项），
-单栏就按学位论文模板检查（55 项）。
-
-```bash
-python scripts/apd.py qa work/paper.docx            # 自动识别
-python scripts/apd.py qa work/paper.docx --profile csae   # 也可强制
-```
-
-### 一句话对照
-
-| 你说 | 得到 |
+| 首页（题名 + 摘要 + 英文块） | 图与表混排 |
 |---|---|
-| "写一篇期刊论文 / 学术论文，投农业工程学报" | 双栏 csae |
-| "写一篇论文"（没说类型） | 双栏 csae |
-| "本科毕业设计 / 学位论文 / 课程报告 / 研究报告" | 单栏 thesis |
-| "帮我排个说明文档 / 方案" | 单栏 thesis |
+| ![双栏首页](docs/screenshots/10-csae-p1.png) | ![双栏图与表](docs/screenshots/11-csae-p2.png) |
 
-## 图文并茂示例：单栏与双栏
+| 末页（讨论 + 结论 + 参考文献） |
+|---|
+| ![双栏末页](docs/screenshots/12-csae-p3.png) |
 
-两个示例都用**同一套配方 + 自动排版**生成，正文页不留大片留白（结尾页与前置部分除外）。
+### 自动排版：正文不留大片留白
 
-### 单栏（学位论文，`--profile thesis`）
+构建时默认开启（`--no-auto-layout` 可关）。它不改文字、不改字号、不删内容，只做三件事：
 
-11 页 / 6 图 / 2 表 / 2 公式；封面、摘要、Abstract、目录各自另起页，正文连续排到底。
-
-![单栏示例：正文页](docs/screenshots/09-thesis-figures.png)
-
-```bash
-python scripts/apd.py build examples/demo/content_model.json -o build/demo.docx
-python scripts/apd.py post  build/demo.docx --pdf build/demo.pdf
-```
-
-### 双栏（期刊稿，`--profile csae`）
-
-3 页 / 4 图 / 2 表 / 1 公式；双栏 8.66 cm、图统一按 86 mm 出图，图题与表题中英对照。
-
-![双栏示例：首页](docs/screenshots/10-csae-p1.png)
-
-![双栏示例：图与表混排](docs/screenshots/11-csae-p2.png)
-
-![双栏示例：末页](docs/screenshots/12-csae-p3.png)
-
-```bash
-python scripts/apd.py build examples/journal_csae/content.json -o build/csae.docx
-```
-
-### 自动排版：不留大片留白
-
-构建时默认开启（`--no-auto-layout` 可关）。它做三件事，全程不改文字、不改字号、不删内容：
-
-1. 生成 docx 并导出 PDF，逐页量"内容底部到版心底部的空白"；
-2. 空白 > 5 cm 且**不是最后一页**（也不在前置部分）的页，找出被推到下一页的图，
-   把该图宽度缩一档（下限 6 cm）后重建；
-3. 最多 3 轮；若某轮变差就**回滚到最好的一轮**并如实报告，不硬凑。
+1. 导出 PDF，逐页量"内容底部 → 版心底部"的空白；
+2. 空白 > 5 cm 且**不是末页**、也**不属前置部分**（封面/摘要/Abstract/目录）时，
+   把被推到下一页的图缩一档（下限 6 cm）后重建；
+3. 最多 3 轮，某轮变差就回滚到最好的一轮并如实报告。
 
 ```
 自动排版：
@@ -176,26 +99,36 @@ python scripts/apd.py build examples/journal_csae/content.json -o build/csae.doc
   结论：正文页无大片留白
 ```
 
-`apd qa` 带 `--pdf` 时也会检查这项（>5 cm 给 WARN），所以留白不是"看着还行"，是可测的。
+`apd qa --pdf` 把这项也纳入检查（>5 cm 给 WARN），所以留白是**可测的**，不靠目测。
 
-## 三步跑起来（推荐）
+## 快速开始
 
+装好之后，三条命令就能出成品（`scripts/apd.py` 是相对路径，在 skill 目录里执行；
+不在该目录时用绝对路径，如 `python ~/.dsh/skills/academic-paper-docx/scripts/apd.py`）：
 
 ```bash
-# 1) 装到 agent 的 skills 目录并自动装依赖（Windows）
-powershell -ExecutionPolicy Bypass -File install.ps1 -Target dsh
-#    macOS / Linux 或手动：git clone 到 ~/.dsh/skills/ 后
-#    python -m pip install -r requirements.txt
+# 1) 内容模型 → docx
+python scripts/apd.py build work/content.json -o work/report.docx
 
-# 2) 自检（告诉你"能做什么、缺什么"，缺了也不影响核心）
-python scripts/apd.py doctor
+# 2) 更新域与目录、导出 PDF、把视图固定为页面视图（Windows + Word）
+python scripts/apd.py post work/report.docx
 
-# 3) 跑一遍完整示例：6 张图 + 三线表 + 公式 + 目录 → docx/PDF/质检
+# 3) 质检 + 文风自检 + 逐页预览
+python scripts/apd.py qa work/report.docx --pdf work/report.pdf
+python scripts/apd.py tone --docx work/report.docx
+python scripts/apd.py preview work/report.pdf -o work/preview
+```
+
+一条命令跑完整示例（6 张图 → docx → PDF → 质检 → 预览）：
+
+```bash
 python scripts/apd.py demo -o build/demo
 ```
 
-不需要 Word、不需要 Origin；中文图内文字用系统的雅黑/黑体/Noto，
-没有中文字体时用 `APD_CJK_FONT=<字体名>` 指定即可。
+不需要 Word、不需要 Origin 也能出 docx；中文图内文字优先用系统的雅黑/黑体/Noto，
+没有中文字体时用 `APD_CJK_FONT=<字体名>` 指定。没有 Word（macOS / Linux）时用
+`bash scripts/postprocess.sh work/report.docx`（LibreOffice 兜底）；文档已写入
+`w:updateFields`，用 Word/WPS 打开会自动更新目录，未展开按 `Ctrl+A` → `F9`。
 
 ## 环境要求（先看这张表）
 
@@ -342,32 +275,78 @@ python scripts/apd.py demo -o build/demo     # 跑一遍完整示例
 
 只想要格式规范手册：直接读 [`references/format-spec.md`](references/format-spec.md)，不需要任何依赖。
 
-## 三步上手（装好之后）
+## 三种用法：怎么说、怎么切单栏/双栏
 
-下面的 `scripts/apd.py` 是相对路径，在 skill 目录里执行；不在那个目录时用绝对路径
-（例如 `python ~/.dsh/skills/academic-paper-docx/scripts/apd.py ...`）。产物路径随意，建议单独建一个工作目录。
+这套 skill 有**两套版式**，切换成本只有一行命令或一句话：
+
+| 版式 | 样子 | 适用 | 参数 |
+|---|---|---|---|
+| **单栏（thesis）** | 封面 + 摘要 + Abstract + 目录 + 正文 12 pt，页脚"第 X 页" | 毕业设计、学位论文、课程报告、研究报告 | `--profile thesis` |
+| **双栏（csae）** | 《农业工程学报》版式：双栏 8.66 cm、黑体 18 pt 题名、正文 10 pt、页码在页眉 | 期刊投稿、学术论文 | `--profile csae` |
+
+### 用法一：直接用话告诉 AI（最省事，推荐）
+
+不用记参数，说清楚"给谁投"即可，agent 会按下面的规则选模板：
+
+> 用 academic-paper-docx 把这批数据写成一篇**期刊论文**，按**农业工程学报**格式排版，双栏。
+
+> 帮我做一份**本科毕业设计**（单栏），要有封面、目录、三线表。
+
+### 用法二：显式指定模板（最可控）
 
 ```bash
-# 1) 内容模型 → docx
-python scripts/apd.py build work/content.json -o work/report.docx
+# 双栏期刊稿
+python scripts/apd.py build work/paper.json -o work/paper.docx --profile csae
 
-# 2) 更新域与目录、导出 PDF、把视图固定为页面视图（Windows + Word）
-python scripts/apd.py post work/report.docx
-
-# 3) 质检 + 文风自检 + 逐页预览
-python scripts/apd.py qa work/report.docx --pdf work/report.pdf
-python scripts/apd.py tone --docx work/report.docx
-python scripts/apd.py preview work/report.pdf -o work/preview
+# 单栏学位论文 / 报告
+python scripts/apd.py build work/report.json -o work/report.docx --profile thesis
 ```
 
-一条命令跑完整示例（图表 → docx → PDF → 质检 → 预览）：
+模型里也能写死，脚本与 agent 都认：
+
+```jsonc
+{ "profile": "csae" }
+```
+
+### 用法三：什么都不说（按任务类型自动判定）
+
+`build` 不给 `--profile` 时按下列优先级决定，并打印判定依据：
+
+```
+模板：csae（只写了"论文"，默认按期刊稿（双栏））
+```
+
+| 优先级 | 线索 | 结果 |
+|---|---|---|
+| 1 | 命令行 `--profile` | 用指定值 |
+| 2 | 模型里 `"profile": "csae" / "thesis"` | 用指定值 |
+| 3 | 模型带 `journal` 块（刊名/卷期/doi） | **双栏** |
+| 4 | `meta.doc_type` 含 毕业设计 / 学位论文 / 课程报告 / 研究报告 / 开题 / 结题 | **单栏** |
+| 5 | `meta.doc_type` 含 期刊 / 学报 / 投稿 / 学术论文 | **双栏** |
+| 6 | 只写了"论文" | **双栏**（按期刊稿） |
+| 7 | 其它（报告、说明、方案…） | **单栏** |
+
+> 为什么"毕业设计（论文）"要排在"论文"前面？因为中文里它同时含"论文"二字，
+> 若先匹配"论文"就会把毕业设计误判成双栏期刊稿。这一条已有单测守着。
+
+### 质检不用再指定
+
+`apd qa` 省略 `--profile` 时会**看文档本身**：正文是双栏就按期刊模板检查（23 项），
+单栏就按学位论文模板检查（55 项）。
 
 ```bash
-python scripts/apd.py demo -o build/demo
+python scripts/apd.py qa work/paper.docx            # 自动识别
+python scripts/apd.py qa work/paper.docx --profile csae   # 也可强制
 ```
 
-没有 Word（macOS / Linux）：`bash scripts/postprocess.sh work/report.docx`（LibreOffice 兜底）。
-文档已写入 `w:updateFields`，用 Word/WPS 打开会自动更新目录；如未展开按 `Ctrl+A` → `F9`。
+### 一句话对照
+
+| 你说 | 得到 |
+|---|---|
+| "写一篇期刊论文 / 学术论文，投农业工程学报" | 双栏 csae |
+| "写一篇论文"（没说类型） | 双栏 csae |
+| "本科毕业设计 / 学位论文 / 课程报告 / 研究报告" | 单栏 thesis |
+| "帮我排个说明文档 / 方案" | 单栏 thesis |
 
 ## 格式指标
 

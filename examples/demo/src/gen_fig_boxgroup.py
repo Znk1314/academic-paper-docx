@@ -42,9 +42,17 @@ def main():
                     boxprops=dict(linewidth=0.7), whiskerprops=dict(linewidth=0.7),
                     capprops=dict(linewidth=0.7), flierprops=dict(markersize=2))
     for i, patch in enumerate(bp["boxes"]):
-        patch.set_facecolor(K.SERIES[5 if i % 3 == 0 else (1 if i % 3 == 1 else 3)])
-        patch.set_alpha(0.85)
-        patch.set_edgecolor(K.AXIS)
+        color = K.SERIES[i % len(K.SERIES)]
+        patch.set_facecolor(color)
+        patch.set_alpha(0.35)
+        patch.set_edgecolor(color)
+        patch.set_linewidth(1.1)
+    # 叠加每个观测点：n 小的时候箱子会掩盖分布
+    for i, vals in enumerate(data, start=1):
+        jit = [((j % 5) - 2) * 0.055 for j in range(len(vals))]
+        ax.plot([i + d for d in jit], vals, linestyle="none", marker="o",
+                markersize=2.6, color=K.AXIS, alpha=0.85, zorder=4,
+                markeredgecolor="white", markeredgewidth=0.3)
     ax.set_xticks(range(1, len(names) + 1))
     ax.set_xticklabels(names, rotation=cfg["rotate"])
     ax.set_xlabel(cfg["x_name"])

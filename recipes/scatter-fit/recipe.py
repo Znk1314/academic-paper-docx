@@ -40,7 +40,9 @@ def main():
         stl = K.style_of(i + 5)
         ys = K.column(header, body, name)
         ax.plot(xs[:len(ys)], ys, linestyle="none", marker=stl["marker"],
-                markersize=st["ms"], color=stl["color"], label=name, zorder=3)
+                markersize=st["ms"], color=stl["color"], label=name, zorder=3,
+                markeredgecolor="white", markeredgewidth=0.5)
+        K.r2_text(ax, xs[:len(ys)], ys)
     ax.set_xlim(lo, hi)
     ax.set_ylim(lo, hi)
     ax.set_xlabel(K.label(cfg["x_name"], cfg["x_unit"], cfg["x_symbol"]))

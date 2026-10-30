@@ -42,6 +42,14 @@ def main():
     ax.set_xticklabels(cols)
     ax.set_xlabel(cfg["col_name"])
     ax.set_ylabel(cfg["row_name"])
+    # 单元格标数值：深色格用白字，浅色格用黑字
+    flat = [v for row in matrix for v in row]
+    mid = (max(flat) + min(flat)) / 2 if flat else 0
+    for r_i, row in enumerate(matrix):
+        for c_i, val in enumerate(row):
+            ax.text(c_i, r_i, "%.1f" % val, ha="center", va="center",
+                    fontsize=st["font"] - 0.5,
+                    color="white" if val > mid else K.AXIS)
     bar = fig.colorbar(im, ax=ax, pad=0.02, fraction=0.05)
     bar.set_label(K.label(cfg["value_name"], cfg["value_unit"], cfg["bar_symbol"]),
                   fontsize=st["font"])

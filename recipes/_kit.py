@@ -19,18 +19,20 @@ MM_PER_INCH = 25.4
 MIN_FONT_PT = 6.0
 
 # 定性色板（Okabe-Ito，色盲安全；与 skill 的 palette.py 同源）
-SERIES = ["#000000", "#E69F00", "#56B4E9", "#009E73",
-          "#F0E442", "#0072B2", "#CC79A7", "#999999"]
+# Okabe-Ito 排序：底色够深、彼此区分度高；不把纯黑放第一位（黑色留给轴线/文字）
+SERIES = ["#0072B2", "#D55E00", "#009E73", "#CC79A7",
+          "#56B4E9", "#E69F00", "#F0E442", "#666666"]
 LINESTYLES = ["-", "--", ":", "-."]
 MARKERS = ["o", "s", "^", "D", "v", "P", "X", "*"]
 GREY = ["#000000", "#404040", "#808080", "#C0C0C0", "#F2F2F2"]
-AXIS = "#262626"
-GRID = "#D9D9D9"
+AXIS = "#333333"
+GRID = "#DDDDDD"
+BAND = "#E8E8E8"
 
 # 字号/线宽（按"插入后不缩放"设计；厘米宽 × 25.4 = 毫米）
 STYLE = {
-    "cn": dict(font=8.5, label=9.0, legend=8.0, lw=1.1, ms=4.0,
-               tick=0.7, spine=0.7, grid_alpha=0.25),
+    "cn": dict(font=8.5, label=9.0, legend=8.0, lw=1.2, ms=4.2,
+               tick=0.7, spine=0.7, grid_alpha=0.18),
     # Nature 正刊体例：正文/刻度 7 pt、最小 6 pt；轴线 0.5 pt；无网格、无上/右轴
     "nature": dict(font=7.0, label=7.0, legend=6.0, lw=0.75, ms=2.8,
                    tick=0.5, spine=0.5, grid_alpha=0.0),
@@ -133,6 +135,38 @@ def bracket(ax, x1, x2, label_text, y=None, st=None):
     ax.text((x1 + x2) / 2, y + h, label_text, ha="center", va="bottom",
             fontsize=(st or STYLE["cn"])["font"])
     ax.set_ylim(lo, hi + span * 0.06)
+
+
+def label_endpoints(ax, xs, ys, color, dx=0.6, fmt="%.1f"):
+    """在折线末端标数值（比整条线打满数值更干净）。"""
+    if not xs:
+        return
+    ax.annotate(fmt % ys[-1], xy=(xs[-1], ys[-1]),
+                xytext=(dx, 0), textcoords="offset points",
+                color=color, fontsize=STYLE["cn"]["font"], va="center")
+
+
+def label_bars(ax, xs, ys, fmt="%.1f", pad=2):
+    for x, y in zip(xs, ys):
+        ax.annotate(fmt % y, xy=(x, y), xytext=(0, pad),
+                    textcoords="offset points", ha="center", va="bottom",
+                    fontsize=STYLE["cn"]["font"] - 0.5, color=AXIS)
+
+
+def r2_text(ax, xs, ys):
+    """在散点图上标 R² 与样本量（统计口径要和图注一致）。"""
+    n = len(xs)
+    mx = sum(xs) / n
+    my = sum(ys) / n
+    sxx = sum((x - mx) ** 2 for x in xs)
+    syy = sum((y - my) ** 2 for y in ys)
+    sxy = sum((x - mx) * (y - my) for x, y in zip(xs, ys))
+    if sxx <= 0 or syy <= 0:
+        return
+    r = sxy / (sxx * syy) ** 0.5
+    ax.annotate("$R^2$ = %.3f\n$n$ = %d" % (r * r, n), xy=(0.04, 0.96),
+                xycoords="axes fraction", va="top", ha="left",
+                fontsize=STYLE["cn"]["font"], color=AXIS)
 
 
 def panel_label(fig, ax, text, style="nature"):

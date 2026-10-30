@@ -33,8 +33,11 @@ def main():
 
     fig, ax, st = K.setup(width_mm=width_mm, style=cfg["style"])
     idx = range(len(vals))
-    ax.bar(idx, vals, width=0.55, color=K.SERIES[5], edgecolor=K.AXIS,
-           linewidth=0.4, zorder=2)
+    bars = ax.bar(idx, vals, width=0.62, color=K.SERIES[0], edgecolor="white",
+                  linewidth=0.8, zorder=2)
+    K.label_bars(ax, list(idx), vals, fmt="%.1f")
+    for bar in bars:
+        bar.set_alpha(0.92)
     if errs:
         ax.errorbar(idx, vals, yerr=errs, fmt="none", ecolor=K.AXIS,
                     elinewidth=st["lw"] * 0.8, capsize=2.0)
@@ -45,6 +48,7 @@ def main():
     ax.set_ylim(bottom=0)
     if cfg["grid"]:
         K.grid(ax, st)
+    ax.set_ylim(0, max(vals) * 1.16)
     K.save(fig, out, width_mm=width_mm, base_font_pt=st["font"], style=cfg["style"])
     K.say("已生成：%s" % out)
 

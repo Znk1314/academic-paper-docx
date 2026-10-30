@@ -57,8 +57,10 @@ def main():
     K.grid(ax, st)
     for item in cfg["brackets"]:
         K.bracket(ax, item["x1"], item["x2"], item["label"], y=item.get("y"))
-    ax.legend(loc=cfg["legend_loc"], frameon=False, handlelength=2.2,
-              borderaxespad=0.3, labelspacing=0.3)
+    # 图例放坐标区上方横排：折线本身占满画面，图例在图内必压数据
+    ax.legend(loc="lower center", bbox_to_anchor=(0.5, 1.02),
+              ncol=len(series), frameon=False, handlelength=2.0,
+              columnspacing=1.4, labelspacing=0.3)
     K.save(fig, out, width_mm=width_mm, base_font_pt=st["font"],
            style=cfg["style"])
     K.say("已生成：%s" % out)

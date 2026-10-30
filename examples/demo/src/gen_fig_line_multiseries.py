@@ -23,9 +23,11 @@ import _kit as K  # noqa: E402
 def config():
     return dict(width_mm=140.0, style="cn", x_symbol="t", x_name="采样周期",
                 x_unit="s", y_symbol="P", y_name="平均功耗", y_unit="mW",
-                brackets=[dict(x1=30, x2=60, label="*", y=19.2),
-                          dict(x1=90, x2=120, label="**", y=19.2)],
-                legend_loc="lower left")
+                # 适配：86 mm 栏宽时留出顶部空间，括号才不压图例
+                ylim_top=20.4,
+                brackets=[dict(x1=30, x2=60, label="*", y=19.0),
+                          dict(x1=90, x2=120, label="**", y=19.0)],
+                legend_loc="lower center")
 
 
 def main():
@@ -57,10 +59,14 @@ def main():
     ax.set_xlabel(K.label(cfg["x_name"], cfg["x_unit"], cfg["x_symbol"]))
     ax.set_ylabel(K.label(cfg["y_name"], cfg["y_unit"], cfg["y_symbol"]))
     K.grid(ax, st)
+    if cfg.get("ylim_top"):
+        ax.set_ylim(top=cfg["ylim_top"])
     for item in cfg["brackets"]:
         K.bracket(ax, item["x1"], item["x2"], item["label"], y=item.get("y"))
-    ax.legend(loc=cfg["legend_loc"], frameon=False, handlelength=2.2,
-              borderaxespad=0.3, labelspacing=0.3)
+    # 图例放坐标区上方横排：折线本身占满画面，图例在图内必压数据
+    ax.legend(loc="lower center", bbox_to_anchor=(0.5, 1.02),
+              ncol=len(series), frameon=False, handlelength=2.0,
+              columnspacing=1.4, labelspacing=0.3)
     K.save(fig, out, width_mm=width_mm, base_font_pt=st["font"],
            style=cfg["style"])
     K.say("已生成：%s" % out)

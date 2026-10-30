@@ -37,8 +37,8 @@ def main():
     for si, name in enumerate(series):
         vals = K.column(header, body, name)
         offs = [i + (si - (groups - 1) / 2) * bar_w for i in idx]
-        ax.bar(offs, vals, width=bar_w * 0.88, color=K.SERIES[si * 2 % len(K.SERIES)],
-               edgecolor=K.AXIS, linewidth=0.4, label=name, zorder=2)
+        ax.bar(offs, vals, width=bar_w * 0.86, color=K.SERIES[si % len(K.SERIES)],
+               edgecolor="white", linewidth=0.8, label=name, zorder=2)
         if "err_" + name in header:
             errs = K.column(header, body, "err_" + name)
             ax.errorbar(offs, vals, yerr=errs, fmt="none", ecolor=K.AXIS,
@@ -48,7 +48,6 @@ def main():
     ax.set_xlabel(cfg["x_name"])
     ax.set_ylabel(K.label(cfg["y_name"], cfg["y_unit"], cfg["y_symbol"]))
     ax.set_ylim(bottom=0)
-    # 适配：单栏 86 mm 时图例压在柱上，改放坐标区上方、横排
     ax.legend(loc="lower center", bbox_to_anchor=(0.5, 1.02), ncol=len(series),
               frameon=False, handlelength=1.6, columnspacing=1.2)
     K.grid(ax, st)
