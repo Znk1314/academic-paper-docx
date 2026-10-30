@@ -43,54 +43,56 @@
 
 ## 成品预览
 
-下面每一页都是 `examples/` 里的模型**一条命令生成**的，没有手工排版、没有后期调图。
+下面每张图都是**两页并排**的真实页面，全部由 `examples/` 的模型一条命令生成：
+没有手工排版、没有后期修图、也没有换过画图工具。
 
 ### 单栏 · 学位论文（`--profile thesis`）
 
-11 页 / 6 图 / 2 表 / 2 公式；封面、摘要、Abstract、目录各自另起页，正文连续排到底。
+11 页 / 6 图 / 2 表 / 2 公式；封面、摘要、Abstract、目录各自另起页，正文连续排到底，
+构建时自动排版把正文页的大片留白清零。
 
-| 封面 | 摘要 |
-|---|---|
-| ![封面](docs/screenshots/01-cover.png) | ![摘要](docs/screenshots/02-abstract.png) |
+<p align="center"><img src="docs/screenshots/p1-cover-abstract.png" alt="单栏：封面 + 摘要" width="100%"></p>
 
-正文页（三线表 + 多系列折线，自动排版后无大片留白）：
+<p align="center"><em>左：封面（题目、作者、学院、日期）· 右：中文摘要 + 关键词</em></p>
 
-![单栏正文页](docs/screenshots/09-thesis-figures.png)
+<p align="center"><img src="docs/screenshots/p2-toc-body.png" alt="单栏：目录 + 正文首页" width="100%"></p>
 
-其余图型：分组柱状（3 系列 × 4 组）、散点（2 系列 × 12 点）、箱线（4 组 + 抖动点）、
-热图（cividis 顺序色板）：
+<p align="center"><em>左：目录（一级顶格、二级缩进、页码右对齐点线）· 右：一级标题 + 首行缩进 2 字符的正文</em></p>
 
-| 表格 + 折线 | 分组柱状 |
-|---|---|
-| ![表格与折线图](docs/screenshots/03-table-figure.png) | ![分组柱状](docs/screenshots/04-figures-compare.png) |
+<p align="center"><img src="docs/screenshots/p3-table-line.png" alt="单栏：三线表 + 折线图" width="100%"></p>
 
-| 散点 + 箱线 | 热图 |
-|---|---|
-| ![散点与箱线](docs/screenshots/05-figures-mixed.png) | ![热图](docs/screenshots/06-heatmap.png) |
+<p align="center"><em>左：表 1 三线表 + 多系列折线（3 色 7 点、SD 误差线、`*`/`**` 显著性）· 右：表 2 + 分组柱状</em></p>
+
+<p align="center"><img src="docs/screenshots/p4-scatter-box.png" alt="单栏：散点 + 箱线 + 热图" width="100%"></p>
+
+<p align="center"><em>左：散点 + 箱线（4 组 + 抖动点）· 右：热图（cividis）+ 结论</em></p>
 
 完整 11 页见 [docs/demo/demo_report.pdf](docs/demo/demo_report.pdf)。
 
 ### 双栏 · 期刊稿（`--profile csae`）
 
-3 页 / 4 图 / 2 表 / 1 公式；双栏 8.66 cm、黑体标题、楷体图题、图表题中英对照，
-图按期刊单栏 **86 mm** 出图（插入后字 ≥6 pt）。
+4 页 / 5 图 / 3 表 / 1 公式；双栏 8.66 cm、黑体标题、楷体图题、图表题中英对照，
+图按期刊单栏 **86 mm** 出图（插入后字 ≥6 pt），页眉奇偶页不同、页码在页眉。
 
-| 首页（题名 + 摘要 + 英文块） | 图与表混排 |
-|---|---|
-| ![双栏首页](docs/screenshots/10-csae-p1.png) | ![双栏图与表](docs/screenshots/11-csae-p2.png) |
+<p align="center"><img src="docs/screenshots/p5-csae-cover.png" alt="双栏：首页 + 图与表" width="100%"></p>
 
-| 末页（讨论 + 结论 + 参考文献） |
-|---|
-| ![双栏末页](docs/screenshots/12-csae-p3.png) |
+<p align="center"><em>左：题名 / 作者 / 单位 / 摘要 / 关键词 / doi / 中图分类号 / 英文块 · 右：双栏正文 + 图 1—3 + 表 2</em></p>
+
+<p align="center"><img src="docs/screenshots/p6-csae-tail.png" alt="双栏：图 4—5 + 参考文献" width="100%"></p>
+
+<p align="center"><em>左：图 4（热图）+ 图 5（箱线）+ 表 3 · 右：参考文献（8 pt，悬挂缩进）</em></p>
+
+以上 6 张预览图由 `scripts/compose_previews.py` 从**当前 PDF** 逐页渲染后拼成
+（每张两张页面），示例一变图就跟着变，不会留在旧图。
 
 ### 自动排版：正文不留大片留白
 
 构建时默认开启（`--no-auto-layout` 可关）。它不改文字、不改字号、不删内容，只做三件事：
 
-1. 导出 PDF，逐页量"内容底部 → 版心底部"的空白；
+1. 导出 PDF，逐页量"内容底部 → 版心底部"的空白（排除页脚页码区）；
 2. 空白 > 5 cm 且**不是末页**、也**不属前置部分**（封面/摘要/Abstract/目录）时，
    把被推到下一页的图缩一档（下限 6 cm）后重建；
-3. 最多 3 轮，某轮变差就回滚到最好的一轮并如实报告。
+3. 最多 3 轮，某轮变差就**回滚到最好的一轮**并如实报告。
 
 ```
 自动排版：

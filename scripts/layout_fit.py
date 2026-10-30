@@ -109,6 +109,11 @@ def body_start_page(texts, headings=None):
     """
     headings = [h for h in (headings or []) if h and len(h) >= 2]
     front_marks = [m.replace(" ", "") for m in FRONT_MATTER_MARKS]
+    # 目录页有点线（…… 或 ....），正文在最后一页目录之后
+    toc_pages = [i for i, t in enumerate(texts, start=1)
+                 if ("……" in t or "...." in t) and i < len(texts)]
+    if not headings and toc_pages:
+        return min(toc_pages[-1] + 1, len(texts))
     for idx, text in enumerate(texts, start=1):
         flat = text.replace(" ", "")
         # 目录页会列出全部标题，必须先按前置部分标记排除
