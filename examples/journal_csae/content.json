@@ -1,22 +1,38 @@
 {
   "profile": "csae",
   "title_en": "A low-power edge fusion method for laboratory environment monitoring",
-  "authors": ["张 三", "李 四", "王 五"],
-  "author_sup": {"张 三": "1", "李 四": "1,2", "王 五": "1"},
+  "authors": [
+    "张 三",
+    "李 四",
+    "王 五"
+  ],
+  "author_sup": {
+    "张 三": "1",
+    "李 四": "1,2",
+    "王 五": "1"
+  },
   "affiliations": [
     "1. 示例大学 信息与电气工程学院，北京 100083",
     "2. 示例大学 农业农村部农业物联网重点实验室，北京 100083"
   ],
-  "authors_en": ["ZHANG San", "LI Si", "WANG Wu"],
+  "authors_en": [
+    "ZHANG San",
+    "LI Si",
+    "WANG Wu"
+  ],
   "affiliations_en": [
     "1. College of Information and Electrical Engineering, Example University, Beijing 100083, China",
     "2. Key Laboratory of Agricultural IoT, Ministry of Agriculture and Rural Affairs, Beijing 100083, China"
   ],
   "journal": {
-    "volume": "41", "issue": "15", "year": "2025", "month": "8",
+    "volume": "41",
+    "issue": "15",
+    "year": "2025",
+    "month": "8",
     "month_en": "Aug.",
     "doi": "10.11975/j.issn.1002-6819.2025.15.012",
-    "clc": "S126", "doc_code": "A",
+    "clc": "S126",
+    "doc_code": "A",
     "article_no": "1002-6819(2025)-15-0098-09",
     "cite_zh": "张三，李四，王五. 面向实验室环境监测的低功耗边缘融合方法[J]. 农业工程学报，2025，41(15)：98-106."
   },
@@ -30,75 +46,250 @@
     "paragraphs": [
       "针对实验室环境参数长期监测中节点供电受限、无线通信占空比高的问题，该研究提出一种边缘侧数据融合方法。节点在本地完成异常值剔除与滑动平均去噪，仅上传聚合特征，以降低通信占空比。以 12 个监测节点、采样周期 30～120 s 的模拟数据为例，比较了该方法与常供电方案、固定周期方案的功耗与精度。结果表明：采样周期由 30 s 放宽至 120 s 时，平均功耗由 15.9 mW 降至 7.4 mW，降幅 53.5%，而温度估计的均方根误差由 0.21 ℃ 升至 0.31 ℃；与两个基线相比，该方法在相同误差水平下平均功耗分别降低 31.5% 与 18.7%。研究结果可为实验室环境监测节点的低功耗设计提供参考。"
     ],
-    "keywords": ["环境监测", "低功耗", "边缘计算", "数据融合", "无线传感器网络"]
+    "keywords": [
+      "环境监测",
+      "低功耗",
+      "边缘计算",
+      "数据融合",
+      "无线传感器网络"
+    ]
   },
   "abstract_en": {
     "paragraphs": [
       "Long-term monitoring of indoor environmental parameters in laboratories is limited by node power supply and high wireless duty cycle. This study proposes an edge-side data fusion method: outliers are rejected and moving-average denoising is performed locally, and only aggregated features are transmitted. Simulated data from 12 nodes with sampling periods of 30-120 s were used to compare the proposed method with a constant-power scheme and a fixed-period scheme. When the sampling period was relaxed from 30 s to 120 s, the average power decreased from 15.9 mW to 7.4 mW (53.5%), while the root mean square error of temperature estimation increased from 0.21 ℃ to 0.31 ℃. Compared with the two baselines, the proposed method reduced the average power by 31.5% and 18.7% at a comparable error level."
     ],
-    "keywords": ["environmental monitoring", "low power", "edge computing",
-                 "data fusion", "wireless sensor network"]
+    "keywords": [
+      "environmental monitoring",
+      "low power",
+      "edge computing",
+      "data fusion",
+      "wireless sensor network"
+    ]
   },
   "sections": [
-    { "level": 1, "text": "0　引　言" },
-    { "type": "p", "text": "实验室环境的温度、湿度与颗粒物浓度随时间与人员活动显著波动，长期缺乏连续记录时，设备漂移与实验条件偏移往往难以及时发现[[1]]。现有商业环境监测产品多面向机房或仓储，采样周期固定、上报频率高，对实验室这类参数变化缓慢但需要长期留存的场景并不经济[[2]]。" },
-    { "type": "p", "text": "无线传感器网络的低功耗调度已有较多研究，主要集中在占空比控制与数据压缩两方面[[3-4]]。然而，多数方法假定节点具备稳定的供电条件，对电池供电、维护周期长的实验室场景考虑不足。本文在节点侧引入轻量融合流程，把通信压力转移到本地计算，从而在有限能量预算下延长监测时长。" },
-
-    { "level": 1, "text": "1　材料与方法" },
-    { "level": 2, "text": "1.1　节点结构与工作模式" },
-    { "type": "p", "text": "节点以低功耗微控制器为核心，通过 I2C 连接温湿度传感器，通过串口连接颗粒物传感器，整机在“休眠—唤醒—采集—计算—上传”的循环中运行。各工作模式的电流与占空比见表 1。" },
+    {
+      "level": 1,
+      "text": "0　引　言"
+    },
+    {
+      "type": "p",
+      "text": "实验室环境的温度、湿度与颗粒物浓度随时间与人员活动显著波动，长期缺乏连续记录时，设备漂移与实验条件偏移往往难以及时发现[[1]]。现有商业环境监测产品多面向机房或仓储，采样周期固定、上报频率高，对实验室这类参数变化缓慢但需要长期留存的场景并不经济[[2]]。"
+    },
+    {
+      "type": "p",
+      "text": "无线传感器网络的低功耗调度已有较多研究，主要集中在占空比控制与数据压缩两方面[[3-4]]。然而，多数方法假定节点具备稳定的供电条件，对电池供电、维护周期长的实验室场景考虑不足。本文在节点侧引入轻量融合流程，把通信压力转移到本地计算，从而在有限能量预算下延长监测时长。"
+    },
+    {
+      "level": 1,
+      "text": "1　材料与方法"
+    },
+    {
+      "level": 2,
+      "text": "1.1　节点结构与工作模式"
+    },
+    {
+      "type": "p",
+      "text": "节点以低功耗微控制器为核心，通过 I2C 连接温湿度传感器，通过串口连接颗粒物传感器，整机在“休眠—唤醒—采集—计算—上传”的循环中运行。各工作模式的电流与占空比见表 1。"
+    },
     {
       "type": "table",
       "caption": "节点各工作模式的电流与时间占比",
       "caption_en": "Current and duty cycle of each working mode",
-      "headers": ["工作模式", "电流/mA", "时间占比/%", "说明"],
-      "rows": [
-        ["休眠", "0.05", "92.0", "仅保留定时唤醒"],
-        ["采集", "1.60", "3.5", "温湿度与颗粒物采样"],
-        ["计算", "2.30", "1.5", "异常值剔除与滑动平均"],
-        ["上传", "44.00", "3.0", "聚合特征上报"]
+      "headers": [
+        "工作模式",
+        "电流/mA",
+        "时间占比/%",
+        "说明"
       ],
-      "widths": [3.0, 2.0, 2.0, 6.0],
-      "aligns": ["left", "right", "right", "left"],
+      "rows": [
+        [
+          "休眠",
+          "0.05",
+          "92.0",
+          "仅保留定时唤醒"
+        ],
+        [
+          "采集",
+          "1.60",
+          "3.5",
+          "温湿度与颗粒物采样"
+        ],
+        [
+          "计算",
+          "2.30",
+          "1.5",
+          "异常值剔除与滑动平均"
+        ],
+        [
+          "上传",
+          "44.00",
+          "3.0",
+          "聚合特征上报"
+        ]
+      ],
+      "widths": [
+        3.0,
+        2.0,
+        2.0,
+        6.0
+      ],
+      "aligns": [
+        "left",
+        "right",
+        "right",
+        "left"
+      ],
       "note": "注：电流为 10 次测量的平均值，时间占比按单次循环统计。"
     },
-    { "level": 2, "text": "1.2　边缘融合流程" },
-    { "type": "p", "text": "设第 k 个采样周期的温度观测值为 z，滑动平均窗口长度为 N，则滤波后的估计值按式（1）计算。当观测值与滑动均值的偏差超过三倍标准差时，该点不参与聚合，仅记入本地日志。" },
+    {
+      "level": 2,
+      "text": "1.2　边缘融合流程"
+    },
+    {
+      "type": "p",
+      "text": "设第 k 个采样周期的温度观测值为 z，滑动平均窗口长度为 N，则滤波后的估计值按式（1）计算。当观测值与滑动均值的偏差超过三倍标准差时，该点不参与聚合，仅记入本地日志。"
+    },
     {
       "type": "equation",
       "latex": "\\hat{z}_k = \\frac{1}{N}\\sum_{i=0}^{N-1} z_{k-i}",
       "number": "（1）"
     },
-
-    { "level": 1, "text": "2　结果与分析" },
-    { "level": 2, "text": "2.1　功耗随采样周期的变化" },
-    { "type": "p", "text": "如图 1 所示，三种方法的平均功耗都随采样周期放宽而下降，其中本文方法的下降斜率更大：周期由 30 s 放宽到 120 s 时，本文方法由 15.9 mW 降至 7.4 mW，两个基线分别只降至 10.8 mW 与 9.1 mW。" },
+    {
+      "level": 1,
+      "text": "2　结果与分析"
+    },
+    {
+      "level": 2,
+      "text": "2.1　功耗随采样周期的变化"
+    },
+    {
+      "type": "p",
+      "text": "如图 1 所示，三种方法的平均功耗都随采样周期放宽而下降，其中本文方法的下降斜率更大：周期由 30 s 放宽到 120 s 时，本文方法由 15.9 mW 降至 7.4 mW，两个基线分别只降至 10.8 mW 与 9.1 mW。"
+    },
     {
       "type": "figure",
-      "path": "../demo/figs/fig2_power.png",
+      "path": "figs/fig2_power.png",
       "caption": "三种方法的平均功耗随采样周期的变化",
       "caption_en": "Average power versus sampling period for three methods",
       "note": "注：误差线为 10 次重复实验的标准差（SD）；* 表示 P<0.05，** 表示 P<0.01。",
       "width_cm": 8.6
     },
-    { "level": 2, "text": "2.2　误差分布" },
-    { "type": "p", "text": "将 10 次重复实验的误差绘成箱线图（图 2）可知，本文方法的四分位距最小，中位数为 0.21 ℃，与商用记录仪的 0.17 ℃ 相差不大；基线 A 的离散程度最大。" },
+    {
+      "level": 2,
+      "text": "2.2　误差分布"
+    },
+    {
+      "type": "p",
+      "text": "将 10 次重复实验的误差绘成箱线图（图 2）可知，本文方法的四分位距最小，中位数为 0.21 ℃，与商用记录仪的 0.17 ℃ 相差不大；基线 A 的离散程度最大。"
+    },
     {
       "type": "figure",
-      "path": "../demo/figs/fig5_box.png",
+      "path": "figs/fig5_box.png",
       "caption": "四种方法的温度估计误差分布",
       "caption_en": "Distribution of temperature estimation error for four methods",
       "note": "注：箱体为四分位距，横线为中位数；每组 10 次重复。",
       "width_cm": 8.6
     },
-
-    { "level": 1, "text": "3　讨　论" },
-    { "type": "p", "text": "本文方案的局限主要有两点。其一，功耗模型基于数据手册的典型电流值，未考虑电池内阻随温度变化的影响，实际寿命可能低于估计值。其二，异常点剔除依赖固定阈值，在传感器老化后需要重新标定，否则会同时抬高误剔除率与漏检率。" },
-
-    { "level": 1, "text": "4　结　论" },
-    { "type": "p", "text": "1）提出了一种面向实验室环境监测的边缘融合流程，在节点本地完成异常值剔除与滑动平均去噪，仅上传聚合特征。" },
-    { "type": "p", "text": "2）在 12 节点、采样周期 30～120 s 的模拟条件下，平均功耗由 15.9 mW 降至 7.4 mW，温度估计的均方根误差由 0.21 ℃ 升至 0.31 ℃，在同等误差水平下优于两个基线。" },
-    { "type": "p", "text": "3）后续将在真实实验室部署不少于 20 个节点，补充长期稳定性与电池寿命的实测数据。" }
+    {
+      "type": "p",
+      "text": [
+        "为考察节点数量对功耗的影响，把节点数从 6 增加到 24 重复上述实验。三种方法的平均功耗都随节点数上升，但本文方法的增幅最小：节点数翻倍时功耗增加 12%，两个基线分别增加 21% 与 17%。"
+      ]
+    },
+    {
+      "type": "figure",
+      "path": "figs/fig3_nodes.png",
+      "width_cm": 8.6,
+      "caption": "不同节点数量下三种方法的平均功耗",
+      "caption_en": "Average power of three methods under different node counts",
+      "note": "误差线为 10 次重复实验的标准差（SD）。"
+    },
+    {
+      "type": "table",
+      "caption": "不同节点数量下的功耗增量",
+      "caption_en": "Power increment under different node counts",
+      "headers": [
+        "节点数",
+        "本文方法/mW",
+        "基线A/mW",
+        "基线B/mW"
+      ],
+      "rows": [
+        [
+          "6",
+          "6.8",
+          "14.2",
+          "10.1"
+        ],
+        [
+          "12",
+          "7.4",
+          "15.1",
+          "10.8"
+        ],
+        [
+          "18",
+          "8.1",
+          "16.0",
+          "11.6"
+        ],
+        [
+          "24",
+          "8.9",
+          "17.2",
+          "12.5"
+        ]
+      ],
+      "note": "采样周期固定为 60 s；功耗为 10 次测量平均值。"
+    },
+    {
+      "type": "h2",
+      "text": "2.3　时空分布"
+    },
+    {
+      "type": "p",
+      "text": [
+        "图 3 给出四个节点在一天内的温度矩阵。午后 12:00—16:00 各节点温度明显抬升，节点 3 的升幅最大（约 4.1 ℃），与它靠近烘箱的位置一致；夜间各节点差异收敛到 0.6 ℃ 以内。"
+      ]
+    },
+    {
+      "type": "figure",
+      "path": "figs/fig6_heatmap.png",
+      "width_cm": 8.6,
+      "caption": "四个节点一天内的温度分布",
+      "caption_en": "Temperature distribution of four nodes over one day",
+      "note": "色标为温度（℃），行标签为节点编号。"
+    },
+    {
+      "type": "p",
+      "text": [
+        "矩阵形态提示两件事：一是节点间的空间相关性可用于缺测插值，二是采样周期在夜间可以进一步放宽。这两点在后续工作中分别对应插值模型与自适应占空比策略。"
+      ]
+    },
+    {
+      "level": 1,
+      "text": "3　讨　论"
+    },
+    {
+      "type": "p",
+      "text": "本文方案的局限主要有两点。其一，功耗模型基于数据手册的典型电流值，未考虑电池内阻随温度变化的影响，实际寿命可能低于估计值。其二，异常点剔除依赖固定阈值，在传感器老化后需要重新标定，否则会同时抬高误剔除率与漏检率。"
+    },
+    {
+      "level": 1,
+      "text": "4　结　论"
+    },
+    {
+      "type": "p",
+      "text": "1）提出了一种面向实验室环境监测的边缘融合流程，在节点本地完成异常值剔除与滑动平均去噪，仅上传聚合特征。"
+    },
+    {
+      "type": "p",
+      "text": "2）在 12 节点、采样周期 30～120 s 的模拟条件下，平均功耗由 15.9 mW 降至 7.4 mW，温度估计的均方根误差由 0.21 ℃ 升至 0.31 ℃，在同等误差水平下优于两个基线。"
+    },
+    {
+      "type": "p",
+      "text": "3）后续将在真实实验室部署不少于 20 个节点，补充长期稳定性与电池寿命的实测数据。"
+    }
   ],
   "references": [
     "全国信息与文献标准化技术委员会. 信息与文献 参考文献著录规则: GB/T 7714—2015[S]. 北京: 中国标准出版社, 2015.",

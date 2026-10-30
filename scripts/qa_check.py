@@ -1073,6 +1073,26 @@ def check_citations(doc):
                 bool(no_type), "缺标识：%s" % "、".join(no_type[:6]))
 
 
+def check_blank_space(pdf_path):
+    """正文页不得有大片留白（末页与前置部分除外）。"""
+    try:
+        import layout_fit
+    except Exception as exc:                      # pragma: no cover
+        warn_if("页面", "留白检查跳过", True, str(exc))
+        return
+    pages = layout_fit.measure_pdf(pdf_path)
+    if not pages:
+        warn_if("页面", "留白检查跳过", True, "缺 PyMuPDF 或 PDF 不可读")
+        return
+    texts = layout_fit.page_texts(pdf_path)
+    start = layout_fit.body_start_page(texts)
+    bad = layout_fit.violations(pages, 5.0, body_start=start)
+    detail = ("正文起始第 %d 页；超标页：%s" % (
+        start, "、".join("第%d页 %.1f cm" % (p["page"], p["blank_cm"]) for p in bad))
+        if bad else "正文页填充良好（末页与前置于此不计）")
+    warn_if("页面", "正文页无大片留白（>5 cm 即提示）", bool(bad), detail)
+
+
 def check_ai_tone(path):
     """AI 味只做提示：分数是启发式的，不判断作者身份，也绝不判 FAIL。"""
     try:
@@ -1225,6 +1245,7 @@ def main(argv=None):
                 import pymupdf as fitz
             except ImportError:  # pragma: no cover
                 import fitz
+            check_blank_space(os.path.abspath(args.pdf))
             pdf = fitz.open(os.path.abspath(args.pdf))
             text = "\n".join(pdf.load_page(i).get_text() for i in range(pdf.page_count))
             pdf.close()

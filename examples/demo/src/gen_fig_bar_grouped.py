@@ -48,7 +48,9 @@ def main():
     ax.set_xlabel(cfg["x_name"])
     ax.set_ylabel(K.label(cfg["y_name"], cfg["y_unit"], cfg["y_symbol"]))
     ax.set_ylim(bottom=0)
-    ax.legend(loc=cfg["legend_loc"], frameon=False)
+    # 适配：单栏 86 mm 时图例压在柱上，改放坐标区上方、横排
+    ax.legend(loc="lower center", bbox_to_anchor=(0.5, 1.02), ncol=len(series),
+              frameon=False, handlelength=1.6, columnspacing=1.2)
     K.grid(ax, st)
     K.save(fig, out, width_mm=width_mm, base_font_pt=st["font"], style=cfg["style"])
     K.say("已生成：%s" % out)

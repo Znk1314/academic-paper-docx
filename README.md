@@ -131,6 +131,53 @@ python scripts/apd.py qa work/paper.docx --profile csae   # 也可强制
 | "本科毕业设计 / 学位论文 / 课程报告 / 研究报告" | 单栏 thesis |
 | "帮我排个说明文档 / 方案" | 单栏 thesis |
 
+## 图文并茂示例：单栏与双栏
+
+两个示例都用**同一套配方 + 自动排版**生成，正文页不留大片留白（结尾页与前置部分除外）。
+
+### 单栏（学位论文，`--profile thesis`）
+
+11 页 / 6 图 / 2 表 / 2 公式；封面、摘要、Abstract、目录各自另起页，正文连续排到底。
+
+![单栏示例：正文页](docs/screenshots/09-thesis-figures.png)
+
+```bash
+python scripts/apd.py build examples/demo/content_model.json -o build/demo.docx
+python scripts/apd.py post  build/demo.docx --pdf build/demo.pdf
+```
+
+### 双栏（期刊稿，`--profile csae`）
+
+3 页 / 4 图 / 2 表 / 1 公式；双栏 8.66 cm、图统一按 86 mm 出图，图题与表题中英对照。
+
+![双栏示例：首页](docs/screenshots/10-csae-p1.png)
+
+![双栏示例：图与表混排](docs/screenshots/11-csae-p2.png)
+
+![双栏示例：末页](docs/screenshots/12-csae-p3.png)
+
+```bash
+python scripts/apd.py build examples/journal_csae/content.json -o build/csae.docx
+```
+
+### 自动排版：不留大片留白
+
+构建时默认开启（`--no-auto-layout` 可关）。它做三件事，全程不改文字、不改字号、不删内容：
+
+1. 生成 docx 并导出 PDF，逐页量"内容底部到版心底部的空白"；
+2. 空白 > 5 cm 且**不是最后一页**（也不在前置部分）的页，找出被推到下一页的图，
+   把该图宽度缩一档（下限 6 cm）后重建；
+3. 最多 3 轮；若某轮变差就**回滚到最好的一轮**并如实报告，不硬凑。
+
+```
+自动排版：
+  第1轮：11 页，留白超标 1 页（8 页 9.5 cm）
+  第2轮：11 页，留白超标 0 页
+  结论：正文页无大片留白
+```
+
+`apd qa` 带 `--pdf` 时也会检查这项（>5 cm 给 WARN），所以留白不是"看着还行"，是可测的。
+
 ## 三步跑起来（推荐）
 
 
